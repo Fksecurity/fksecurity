@@ -109,7 +109,7 @@
     barcodePreview.textContent = parts.join("");
   }
 
- async function getFinalBarcodesFromServer(count) {
+async function getFinalBarcodesFromServer(count) {
   const combinedParts = [];
   let modeCode = null;
 
@@ -120,25 +120,26 @@
     if (!selectType || !valueInput) continue;
 
     if (selectType.value === "shift") {
-      // 모드 선택: A → 0, B → 5
       modeCode = valueInput.value === "모드 A" ? "0" : "5";
     } else if (selectType.value === "serial") {
-      // 임의번호는 prefix에 포함되지 않음
       continue;
     } else {
       combinedParts.push(valueInput.value.trim());
     }
   }
 
-  // 💡 주차 필드 뒤에 모드코드 병합
-  for (let i = 0; i < combinedParts.length; i++) {
-    if (/^\d+$/.test(combinedParts[i]) && modeCode !== null) {
+  // ✅ 가장 마지막 숫자 또는 숫자로 끝나는 문자열에 모드코드 붙이기
+  for (let i = combinedParts.length - 1; i >= 0; i--) {
+    if (modeCode !== null && /^\d+$/.test(combinedParts[i])) {
       combinedParts[i] += modeCode;
-      break; // 한 번만 병합
+      break;
+    }
+    if (modeCode !== null && /\d{2}$/.test(combinedParts[i])) {
+      combinedParts[i] = combinedParts[i].replace(/(\d{2})$/, `$1${modeCode}`);
+      break;
     }
   }
 
-  // 최종 prefix 조합 (하이픈 포함 구조 유지)
   const finalPrefix = combinedParts.join("");
 
   const response = await fetch("https://fksecurity.onrender.com/next-barcode", {
