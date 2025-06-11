@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_FILE = join(__dirname, "barcodes.json");
 
 const app = express();
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT;
 const git = simpleGit(); // ✅ Git 인스턴스 생성
 
 app.use(cors());
