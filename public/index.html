@@ -154,76 +154,66 @@ async function getFinalBarcodesFromServer(count) {
 }
 
 
-  async function handlePrint(type) {
-    try {
-      const count = parseInt(document.getElementById("printCount").value || "1");
-      const barcodes = await getFinalBarcodesFromServer(count);
+ async function handlePrint(type) {
+  try {
+    const count = parseInt(document.getElementById("printCount").value || "1");
+    const barcodes = await getFinalBarcodesFromServer(count);
 
-      barcodePreview.textContent = barcodes.join(", ");
+    barcodePreview.textContent = barcodes.join(", ");
 
-      if (type === "a4" || type === "label") {
-        const win = window.open('', '_blank');
-        const isA4 = type === "a4";
-        const fontSize = isA4 ? "80pt" : "12pt";
-        const barcodeSize = isA4 ? "30pt" : "32pt";
-        const layout = isA4
-          ? "padding:40px; text-align:center;"
-          : "width:50mm; height:40mm; margin:0; padding:5mm; display:flex; flex-direction:column; align-items:center; justify-content:center;";
+    if (type === "a4") {
+      const win = window.open('', '_blank');
+      const layout = "padding:40px; text-align:center; font-size:80pt;";
+      const barcodeSize = "30pt";
 
-        win.document.write(`
-          <html><head><title>바코드 출력</title>
-          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-          </head>
-          <body style="${layout} font-size:${fontSize};">
-            ${barcodes.map(code => `
-              <div>${code}</div>
-              <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${barcodeSize}; margin-bottom:30px;">*${code}*</div>
-            `).join("")}
-          </body></html>
-        `);
-        win.document.close();
-        win.focus();
-        win.print();
-      } else if (type === "bixolon") {
-        for (const code of barcodes) {
-          const payload = JSON.stringify({
-            version: "1.0",
-            commands: [
-              { cmd: "printText", text: code, x: 10, y: 10, font: "FONT_A", hFactor: 2, vFactor: 2 },
-              { cmd: "printBarcode", type: "Code128", text: code, x: 10, y: 50, height: 50 }
-            ]
-          });
-          await requestPrint("SLP-DX423", payload);
-        }
-        alert("✅ Bixolon 출력 완료");
+      win.document.write(`
+        <html><head><title>바코드 출력</title>
+        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+        </head>
+        <body style="${layout}">
+          <div>${barcodes[0]}</div>
+          <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${barcodeSize}; margin-top: 40px;">*${barcodes[0]}*</div>
+        </body></html>
+      `);
+      win.document.close();
+      win.focus();
+      win.print();
+
+    } else if (type === "label") {
+      const win = window.open('', '_blank');
+      const layout = "width:50mm; height:40mm; margin:0; padding:5mm; display:flex; flex-direction:column; align-items:center; justify-content:center;";
+
+      win.document.write(`
+        <html><head><title>라벨 출력</title>
+        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+        </head>
+        <body style="${layout} font-size:12pt;">
+          <div>${barcodes[0]}</div>
+          <div style="font-family: 'Libre Barcode 128', monospace; font-size: 32pt; margin-top: 8px;">*${barcodes[0]}*</div>
+        </body></html>
+      `);
+      win.document.close();
+      win.focus();
+      win.print();
+
+    } else if (type === "bixolon") {
+      for (const code of barcodes) {
+        const payload = JSON.stringify({
+          version: "1.0",
+          commands: [
+            { cmd: "printText", text: code, x: 10, y: 10, font: "FONT_A", hFactor: 2, vFactor: 2 },
+            { cmd: "printBarcode", type: "Code128", text: code, x: 10, y: 50, height: 50 }
+          ]
+        });
+        await requestPrint("SLP-DX423", payload);
       }
-    } catch (err) {
-      console.error(err);
-      alert("❌ 출력 실패: 서버 또는 연결 확인");
+      alert("✅ Bixolon 출력 완료");
     }
+  } catch (err) {
+    console.error(err);
+    alert("❌ 출력 실패: 서버 또는 연결 확인");
   }
-
-  function requestPrint(printerName, payload, callback) {
-    return fetch(`http://127.0.0.1:9200/WebPrintSDK/${printerName}`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: `param=${encodeURIComponent(payload)}`
-    })
-    .then(res => {
-      if (!res.ok) throw new Error("❌ Bixolon 프린트 실패");
-      return res.text();
-    })
-    .then(text => {
-      console.log("📦 Bixolon 응답:", text);
-      if (callback) callback();
-    })
-    .catch(err => {
-      console.error(err);
-      alert("❌ Bixolon 출력 실패: WebDriver 실행 중인지 확인하세요.");
-    });
-  }
+}
 
   document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
   document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
