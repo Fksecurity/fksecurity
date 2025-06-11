@@ -115,20 +115,24 @@
     barcodePreview.textContent = parts.join("");
   }
 
-  function getKoreanWeekNumber(date) {
-    const sundayBased = new Date(date);
-    const day = sundayBased.getDay();
-    sundayBased.setDate(sundayBased.getDate() - day);
-    const startOfYear = new Date(sundayBased.getFullYear(), 0, 1);
-    const diff = sundayBased - startOfYear;
-    const oneWeek = 1000 * 60 * 60 * 24 * 7;
-    const week = Math.floor(diff / oneWeek) + 1;
-    return week;
-  }
+  function getCompanyWeekNumber(date) {
+  const year = date.getFullYear();
+  const jan1 = new Date(year, 0, 1);
+  const jan1Day = jan1.getDay(); // 0: 일요일
+
+  // 1월 1일이 속한 주의 일요일로 이동
+  const firstSunday = new Date(jan1);
+  firstSunday.setDate(jan1.getDate() - jan1Day);
+
+  const diffInMs = date - firstSunday;
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  const week = Math.floor(diffInDays / 7) + 1;
+  return week;
+}
 
   function updateDateAndWeek() {
     const now = new Date();
-    const week = getKoreanWeekNumber(now);
+    const week = getCompanyWeekNumber(now);
     const dateText = now.toLocaleDateString("ko-KR", {
       year: "numeric",
       month: "long",
