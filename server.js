@@ -28,35 +28,55 @@ app.post("/next-barcode", async (req, res) => {
   console.log("📥 [API] POST /next-barcode");
 
   const { prefix, count = 1 } = req.body;
+
+  // ✅ 디버깅 로그 1: 요청 데이터
+  console.log("🧪 받은 prefix:", prefix);
+  console.log("🧪 요청된 count:", count);
+
   if (!prefix) {
     console.warn("⚠️ prefix 미입력");
     return res.status(400).json({ error: "prefix is required" });
   }
 
+  // ✅ 디버깅 로그 2: barcodes.json 로딩
   const db = await fs.readJson(DB_FILE).catch(() => ({}));
-  let current = db[prefix] || 0;
-  const result = [];
+  console.log("📚 현재 DB 상태:", db);
 
+  let current = db[prefix] || 0;
+  console.log("📌 현재 prefix의 마지막 번호:", current);
+
+  const result = [];
   for (let i = 1; i <= count; i++) {
     const next = current + i;
     if (next > 999) {
       console.error("❌ 임의번호 999 초과");
       return res.status(400).json({ error: "❌ 임의번호 999 초과, 새로운 주/야 코드를 설정하세요." });
     }
-    result.push(`${prefix}${next}`);
+
+    const barcode = `${prefix}${next}`;
+    result.push(barcode);
+
+    // ✅ 디버깅 로그 3: 생성되는 각 바코드
+    console.log(`🔢 생성 바코드 [${i}]:`, barcode);
   }
 
   db[prefix] = current + count;
+
+  // ✅ 디버깅 로그 4: 저장 직전 확인
+  console.log("💾 업데이트된 DB 내용:", db);
+
   await fs.writeJson(DB_FILE, db, { spaces: 2 });
-  console.log("💾 barcodes.json 저장됨:", db);
+  console.log("✅ barcodes.json 저장 완료");
 
   // ✅ GitHub 업로드
   await uploadToGitHub(BARCODES_GITHUB_FILE, DB_FILE, `📦 ${prefix} → ${db[prefix]}`);
 
+  // ✅ 디버깅 로그 5: 최종 응답 데이터
+  console.log("📤 클라이언트로 반환할 바코드 리스트:", result);
   res.json({ barcodes: result });
 });
 
-// ✅ 설정 저장 API (+ GitHub 연동)
+// ✅ 설정 저장 API
 app.post("/save-settings", async (req, res) => {
   try {
     const data = req.body;
@@ -73,7 +93,7 @@ app.post("/save-settings", async (req, res) => {
   }
 });
 
-// ✅ 설정 불러오기
+// ✅ 설정 불러오기 API
 app.get("/load-settings", async (req, res) => {
   try {
     const data = await fs.readJson(SETTINGS_FILE);
@@ -131,5 +151,5 @@ async function uploadToGitHub(filename, localPath, message) {
 
 // ✅ 서버 실행
 app.listen(PORT, () => {
-  console.log(`✅ Barcode server running on port ${PORT}`);
+  console.log(`🚀 Barcode server running on port ${PORT}`);
 });
