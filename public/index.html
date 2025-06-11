@@ -321,6 +321,53 @@ function generateBarcode() {
       btn.classList.add("bg-blue-600", "text-white");
     });
   });
+    document.getElementById("tab-a4").innerHTML = `
+    <label class="block mb-2">바코드 크기 (pt)
+      <input id="a4-barcodeSize" type="number" value="30" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">텍스트 크기 (pt)
+      <input id="a4-textSize" type="number" value="80" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">여백 (px)
+      <input id="a4-padding" type="number" value="40" class="border p-1 rounded w-24 ml-2" />
+    </label>
+  `;
+
+  document.getElementById("tab-bixolon").innerHTML = `
+    <label class="block mb-2">바코드 높이 (px)
+      <input id="bix-barcodeHeight" type="number" value="80" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">바코드 너비 (scale)
+      <input id="bix-barcodeWidth" type="number" value="2" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">폰트 (FONT_A, FONT_B 등)
+      <input id="bix-font" type="text" value="FONT_A" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">X 위치
+      <input id="bix-x" type="number" value="10" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">Y 위치
+      <input id="bix-y" type="number" value="60" class="border p-1 rounded w-24 ml-2" />
+    </label>
+  `;
+
+  document.getElementById("tab-label").innerHTML = `
+    <label class="block mb-2">라벨 가로 크기 (mm)
+      <input id="label-width" type="number" value="50" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">라벨 세로 크기 (mm)
+      <input id="label-height" type="number" value="40" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">바코드 폰트 크기 (pt)
+      <input id="label-fontSize" type="number" value="32" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">위쪽 여백 (px)
+      <input id="label-marginTop" type="number" value="10" class="border p-1 rounded w-24 ml-2" />
+    </label>
+    <label class="block mb-2">아래쪽 여백 (px)
+      <input id="label-marginBottom" type="number" value="10" class="border p-1 rounded w-24 ml-2" />
+    </label>
+  `;
   document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
   document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
   document.getElementById("printLabel").addEventListener("click", () => handlePrint("label"));
