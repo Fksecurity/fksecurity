@@ -97,23 +97,37 @@
     generateBarcode();
   });
 
-  function generateBarcode() {
-    const parts = [];
-    for (const wrapper of fieldsContainer.children) {
-      const selectType = wrapper.querySelector("select:first-child");
-      const valueInput = wrapper.querySelector("input, select.mode-select");
-      if (!selectType || !valueInput) continue;
+function generateBarcode() {
+  const parts = [];
+  let modeCode = null;
+  let weekNumber = getCompanyWeekNumber(new Date());
 
-      if (selectType.value === "shift") {
-        parts.push(valueInput.value === "모드 A" ? "0" : "5");
-      } else {
-        if (!valueInput.disabled && valueInput.value) {
-          parts.push(valueInput.value);
-        }
+  for (const wrapper of fieldsContainer.children) {
+    const selectType = wrapper.querySelector("select:first-child");
+    const valueInput = wrapper.querySelector("input, select.mode-select");
+
+    if (!selectType || !valueInput) continue;
+
+    if (selectType.value === "shift") {
+      modeCode = valueInput.value === "모드 A" ? "0" : "5";
+    } else if (selectType.value === "serial") {
+      // serial은 실제 바코드 조합 미리보기에는 반영하지 않음
+      continue;
+    } else {
+      if (!valueInput.disabled && valueInput.value) {
+        parts.push(valueInput.value.trim());
       }
     }
-    barcodePreview.textContent = parts.join("");
   }
+
+  if (modeCode !== null) {
+    const weekWithShift = `${weekNumber}${modeCode}`;
+    parts.push(weekWithShift);
+  }
+
+  barcodePreview.textContent = parts.join("-");
+}
+
 
   function getCompanyWeekNumber(date) {
   const year = date.getFullYear();
