@@ -6,38 +6,41 @@
   <title>📦 외부 바코드 출력기</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-
 </head>
 <body class="bg-gray-100 text-sm">
   <div class="max-w-5xl mx-auto p-4">
     <h1 class="text-2xl font-bold mb-4">🖨️ 외부 출력 전용 바코드 생성기</h1>
 
-<div class="flex gap-4">
-  <!-- 왼쪽 설정 영역: 스크롤 처리 추가 -->
-<div class="w-1/2 space-y-4 pr-2">
-    <button id="addFieldBtn" class="px-4 py-2 bg-blue-600 text-white rounded">➕ 필드 추가</button>
-    <div id="fieldsContainer" class="space-y-4"></div>
-  </div>
+    <div class="flex gap-4">
+      <!-- 왼쪽 입력 -->
+      <div class="w-1/2 space-y-4 pr-2">
+        <button id="addFieldBtn" class="px-4 py-2 bg-blue-600 text-white rounded">➕ 필드 추가</button>
+        <div id="fieldsContainer" class="space-y-4"></div>
+      </div>
 
-  <!-- 오른쪽 미리보기 영역: 고정 높이 및 내용 박스 -->
-<div class="flex gap-4 items-start">
-    <h2 class="font-bold mb-2">🎯 미리보기</h2>
-    <div id="barcodePreview" class="text-2xl font-mono tracking-widest text-blue-800 break-all"></div>
-  </div>
-  <div class="flex gap-2 mt-6">
-  <button id="printA4" class="bg-blue-600 text-white px-4 py-2 rounded">🖨️ A4 출력</button>
-  <button id="printBixolon" class="bg-purple-600 text-white px-4 py-2 rounded">🖨️ Bixolon 출력</button>
-  <button id="printLabel" class="bg-orange-600 text-white px-4 py-2 rounded">🖨️ 라벨 출력</button>
-</div>
-</div>
+      <!-- 오른쪽 미리보기 -->
+      <div>
+        <h2 class="font-bold mb-2">🎯 미리보기</h2>
+        <div id="barcodePreview" class="text-2xl font-mono tracking-widest text-blue-800 break-all"></div>
+
+        <div class="flex gap-2 items-center mt-4">
+          <label for="printCount" class="font-bold">출력 매수</label>
+          <input id="printCount" type="number" min="1" value="1" class="border p-2 rounded w-24" />
+        </div>
+
+        <div class="flex gap-2 mt-6">
+          <button id="printA4" class="bg-blue-600 text-white px-4 py-2 rounded">🖨️ A4 출력</button>
+          <button id="printBixolon" class="bg-purple-600 text-white px-4 py-2 rounded">🖨️ Bixolon 출력</button>
+          <button id="printLabel" class="bg-orange-600 text-white px-4 py-2 rounded">🖨️ 라벨 출력</button>
+        </div>
+      </div>
+    </div>
   </div>
 
 <script>
   const fieldsContainer = document.getElementById("fieldsContainer");
   const barcodePreview = document.getElementById("barcodePreview");
   const addFieldBtn = document.getElementById("addFieldBtn");
-
-  let currentBarcodeParts = [];
 
   addFieldBtn.addEventListener("click", () => {
     const wrapper = document.createElement("div");
@@ -63,34 +66,28 @@
 
     select.addEventListener("change", () => {
       const modeDropdown = wrapper.querySelector("select.mode-select");
-      if (modeDropdown) modeDropdown.remove(); // 기존 모드 드롭다운 제거
+      if (modeDropdown) modeDropdown.remove();
 
-      if (select.value === "fixed") {
+      if (select.value === "fixed" || select.value === "dynamic") {
         input.disabled = false;
-        input.value = "";
-        if (!wrapper.contains(input)) wrapper.appendChild(input);
-      } else if (select.value === "dynamic") {
-        input.disabled = false;
-        input.value = "(자동 검색)";
+        input.value = select.value === "fixed" ? "" : "(자동 검색)";
         if (!wrapper.contains(input)) wrapper.appendChild(input);
       } else if (select.value === "serial") {
         input.disabled = true;
         input.value = "(자동 부여)";
         if (!wrapper.contains(input)) wrapper.appendChild(input);
       } else if (select.value === "shift") {
-        input.remove(); // input 제거
+        input.remove();
         const dropdown = document.createElement("select");
         dropdown.className = "border p-2 rounded mode-select";
         dropdown.innerHTML = `<option value="모드 A">모드 A</option><option value="모드 B">모드 B</option>`;
         wrapper.appendChild(dropdown);
-
         dropdown.addEventListener("change", generateBarcode);
       }
       generateBarcode();
     });
 
     input.addEventListener("input", generateBarcode);
-
     generateBarcode();
   });
 
@@ -99,7 +96,6 @@
     for (const wrapper of fieldsContainer.children) {
       const selectType = wrapper.querySelector("select:first-child");
       const valueInput = wrapper.querySelector("input, select.mode-select");
-
       if (!selectType || !valueInput) continue;
 
       if (selectType.value === "shift") {
@@ -113,56 +109,90 @@
     barcodePreview.textContent = parts.join("");
   }
 
-  // 🔵 A4 출력
-  document.getElementById("printA4").addEventListener("click", () => {
-    const content = barcodePreview.textContent;
-    const win = window.open('', '_blank');
-    win.document.write(`
-      <html><head><title>바코드 출력</title>
-      <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-      </head>
-      <body style="padding:40px; font-size:80pt; text-align:center;">
-        <div>${content}</div>
-        <div style="font-family: 'Libre Barcode 128', monospace; font-size: 30pt; margin-top: 40px;">*${content}*</div>
-      </body></html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
-  });
+  async function getFinalBarcodesFromServer(count) {
+    const prefixParts = [];
+    let modeCode = null;
 
-  // 🟣 Bixolon 출력
-  document.getElementById("printBixolon").addEventListener("click", () => {
-    const barcode = barcodePreview.textContent;
-    const payload = JSON.stringify({
-      version: "1.0",
-      commands: [
-        { cmd: "printText", text: barcode, x: 10, y: 10, font: "FONT_A", hFactor: 2, vFactor: 2 },
-        { cmd: "printBarcode", type: "Code128", text: barcode, x: 10, y: 50, height: 50 }
-      ]
+    for (const wrapper of fieldsContainer.children) {
+      const selectType = wrapper.querySelector("select:first-child");
+      const valueInput = wrapper.querySelector("input, select.mode-select");
+
+      if (!selectType || !valueInput) continue;
+
+      if (selectType.value === "shift") {
+        modeCode = valueInput.value === "모드 A" ? "A" : "B";
+        prefixParts.push(""); // 자리 확보
+      } else if (selectType.value === "serial") {
+        prefixParts.push(""); // 자리 확보
+      } else {
+        prefixParts.push(valueInput.value.trim());
+      }
+    }
+
+    const prefix = prefixParts.filter(p => p !== "").join("");
+
+    const response = await fetch("https://fksecurity.onrender.com/generate", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefix, mode: modeCode || "A", count })
     });
-    requestPrint("SLP-DX423", payload, () => alert("✅ Bixolon 출력 완료"));
-  });
 
-  // 🟠 라벨 출력 (PDF 방식, 50mm x 40mm)
-  document.getElementById("printLabel").addEventListener("click", () => {
-    const content = barcodePreview.textContent;
-    const win = window.open('', '_blank');
-    win.document.write(`
-      <html><head><title>라벨 출력</title>
-      <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-      </head>
-      <body style="width:50mm; height:40mm; margin:0; padding:5mm; font-size:12pt; display:flex; flex-direction:column; align-items:center; justify-content:center;">
-        <div>${content}</div>
-        <div style="font-family: 'Libre Barcode 128', monospace; font-size: 32pt;">*${content}*</div>
-      </body></html>
-    `);
-    win.document.close();
-    win.focus();
-    win.print();
-  });
-    function requestPrint(printerName, payload, callback) {
-    fetch(`http://127.0.0.1:9200/WebPrintSDK/${printerName}`, {
+    if (!response.ok) throw new Error("❌ 서버 오류");
+    const data = await response.json();
+    return data.barcodes;
+  }
+
+  async function handlePrint(type) {
+    try {
+      const count = parseInt(document.getElementById("printCount").value || "1");
+      const barcodes = await getFinalBarcodesFromServer(count);
+
+      barcodePreview.textContent = barcodes.join(", ");
+
+      if (type === "a4" || type === "label") {
+        const win = window.open('', '_blank');
+        const isA4 = type === "a4";
+        const fontSize = isA4 ? "80pt" : "12pt";
+        const barcodeSize = isA4 ? "30pt" : "32pt";
+        const layout = isA4
+          ? "padding:40px; text-align:center;"
+          : "width:50mm; height:40mm; margin:0; padding:5mm; display:flex; flex-direction:column; align-items:center; justify-content:center;";
+
+        win.document.write(`
+          <html><head><title>바코드 출력</title>
+          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+          </head>
+          <body style="${layout} font-size:${fontSize};">
+            ${barcodes.map(code => `
+              <div>${code}</div>
+              <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${barcodeSize}; margin-bottom:30px;">*${code}*</div>
+            `).join("")}
+          </body></html>
+        `);
+        win.document.close();
+        win.focus();
+        win.print();
+      } else if (type === "bixolon") {
+        for (const code of barcodes) {
+          const payload = JSON.stringify({
+            version: "1.0",
+            commands: [
+              { cmd: "printText", text: code, x: 10, y: 10, font: "FONT_A", hFactor: 2, vFactor: 2 },
+              { cmd: "printBarcode", type: "Code128", text: code, x: 10, y: 50, height: 50 }
+            ]
+          });
+          await requestPrint("SLP-DX423", payload);
+        }
+        alert("✅ Bixolon 출력 완료");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ 출력 실패: 서버 또는 연결 확인");
+    }
+  }
+
+  function requestPrint(printerName, payload, callback) {
+    return fetch(`http://127.0.0.1:9200/WebPrintSDK/${printerName}`, {
       method: "POST",
       headers: {
         "Content-Type": "application/x-www-form-urlencoded"
@@ -182,6 +212,10 @@
       alert("❌ Bixolon 출력 실패: WebDriver 실행 중인지 확인하세요.");
     });
   }
+
+  document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
+  document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
+  document.getElementById("printLabel").addEventListener("click", () => handlePrint("label"));
 </script>
 
 </body>
