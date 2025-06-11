@@ -11,6 +11,13 @@
   <div class="max-w-5xl mx-auto p-4">
     <h1 class="text-2xl font-bold mb-4">🖨️ 외부 출력 전용 바코드 생성기</h1>
 
+<!-- ✅ 날짜 및 주차 영역 추가 -->
+<div class="flex justify-end items-center space-x-4 mb-4">
+  <div id="dateDisplay" class="text-gray-600 font-semibold"></div>
+  <div id="weekDisplay" class="text-gray-800 font-bold"></div>
+</div>
+
+
     <div class="flex gap-4">
       <!-- 왼쪽 입력 -->
       <div class="w-1/2 space-y-4 pr-2">
@@ -266,6 +273,36 @@ async function handlePrint(type) {
     console.error(err);
     alert("❌ 출력 실패: 서버 또는 연결 확인");
   }
+
+  function getKoreanWeekNumber(date) {
+    const sundayBased = new Date(date);
+    const day = sundayBased.getDay();
+    sundayBased.setDate(sundayBased.getDate() - day); // 가장 가까운 일요일로 이동
+
+    const startOfYear = new Date(sundayBased.getFullYear(), 0, 1);
+    const diff = sundayBased - startOfYear;
+    const oneWeek = 1000 * 60 * 60 * 24 * 7;
+    const week = Math.floor(diff / oneWeek) + 1;
+    return week;
+  }
+
+  function updateDateAndWeek() {
+    const now = new Date();
+    const week = getKoreanWeekNumber(now);
+
+    const dateText = now.toLocaleDateString("ko-KR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+      weekday: "long"
+    });
+
+    document.getElementById("dateDisplay").textContent = `🕒 ${dateText}`;
+    document.getElementById("weekDisplay").textContent = `📅 ${week}주차`;
+  }
+
+  updateDateAndWeek();
+
 }
 
 
