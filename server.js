@@ -3,22 +3,19 @@ import fs from "fs-extra";
 import cors from "cors";
 import { dirname, join } from "path";
 import { fileURLToPath } from "url";
+import simpleGit from "simple-git"; // ✅ 추가
 
-// 📦 현재 파일 위치 기준 경로 계산
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_FILE = join(__dirname, "barcodes.json");
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+const git = simpleGit(); // ✅ Git 인스턴스 생성
 
-// ✅ 미들웨어 설정
 app.use(cors());
 app.use(express.json());
-
-// ✅ 정적 파일 서빙 (public 폴더 안의 HTML, CSS, JS 등)
 app.use(express.static(join(__dirname, "public")));
 
-// ✅ 바코드 생성 API
 app.post("/next-barcode", async (req, res) => {
   const { prefix, count = 1 } = req.body;
 
@@ -41,10 +38,20 @@ app.post("/next-barcode", async (req, res) => {
   db[prefix] = current + count;
   await fs.writeJson(DB_FILE, db, { spaces: 2 });
 
+  // ✅ GitHub 자동 push
+  try {
+    await git.add(DB_FILE);
+    await git.commit(`🔄 ${prefix} → ${db[prefix]} (Auto push at ${new Date().toISOString()})`);
+    await git.push();
+    console.log("✅ GitHub에 push 완료");
+  } catch (err) {
+    console.error("❌ GitHub push 실패:", err.message);
+  }
+
   res.json({ barcodes: result });
 });
 
-// ✅ 서버 시작
 app.listen(PORT, () => {
   console.log(`✅ Barcode server running on port ${PORT}`);
 });
+
