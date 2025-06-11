@@ -6,12 +6,6 @@ import { dirname, join } from "path";
 import { fileURLToPath } from "url";
 import simpleGit from "simple-git";
 
-// ✅ .env 로컬환경 대응 (.env 파일이 있을 때만)
-dotenv.config();
-
-const __dirname = dirname(fileURLToPath(import.meta.url));
-const DB_FILE = join(__dirname, "barcodes.json");
-
 // ✅ Git 초기화
 const git = simpleGit();
 
