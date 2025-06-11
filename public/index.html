@@ -241,23 +241,33 @@ async function handlePrint(type) {
       marginBottom: document.getElementById("label-marginBottom")?.value || 10
     };
 
-    if (type === "a4") {
-      const win = window.open('', '_blank');
-      const layout = `padding:${a4.padding}px; text-align:center; font-size:${a4.textSize}pt;`;
-      win.document.write(`
-        <html><head><title>바코드 출력</title>
-        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-        </head>
-        <body style="${layout}">
-          <div>${barcodes[0]}</div>
-          <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${a4.barcodeSize}pt; margin-top: 40px;">*${barcodes[0]}*</div>
-        </body></html>
-      `);
-      win.document.close();
-      win.focus();
-      win.print();
-
-    } else if (type === "label") {
+if (type === "a4") {
+  const win = window.open('', '_blank');
+  const layout = `padding:${a4.padding}px; text-align:center; font-size:${a4.textSize}pt;`;
+  win.document.write(`
+    <html><head><title>바코드 출력</title>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+    <style>
+      .barcode-item {
+        page-break-after: always;
+        margin-bottom: 40px;
+      }
+    </style>
+    </head>
+    <body style="${layout}">
+      ${barcodes.map(code => `
+        <div class="barcode-item">
+          <div>${code}</div>
+          <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${a4.barcodeSize}pt; margin-top: 40px;">*${code}*</div>
+        </div>
+      `).join('')}
+    </body></html>
+  `);
+  win.document.close();
+  win.focus();
+  win.print();
+}
+else if (type === "label") {
       const win = window.open('', '_blank');
       win.document.write(`
         <html><head><title>라벨 출력</title>
