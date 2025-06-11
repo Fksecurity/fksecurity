@@ -23,60 +23,83 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static(join(__dirname, "public"))); // index.html 경로
 
-// ✅ 바코드 생성 및 저장 API
+// ✅ 바코드 생성 및 저장 API (하이픈 포함 prefix 처리)
 app.post("/next-barcode", async (req, res) => {
   console.log("📥 [API] POST /next-barcode");
 
   const { prefix, count = 1 } = req.body;
-
-  // ✅ 디버깅 로그 1: 요청 데이터
-  console.log("🧪 받은 prefix:", prefix);
-  console.log("🧪 요청된 count:", count);
-
   if (!prefix) {
     console.warn("⚠️ prefix 미입력");
     return res.status(400).json({ error: "prefix is required" });
   }
 
-  // ✅ 디버깅 로그 2: barcodes.json 로딩
+  // prefix 끝에 하이픈 없으면 붙임
+  const prefixWithHyphen = prefix.endsWith("-") ? prefix : prefix + "-";
+
   const db = await fs.readJson(DB_FILE).catch(() => ({}));
-  console.log("📚 현재 DB 상태:", db);
-
-  let current = db[prefix] || 0;
-  console.log("📌 현재 prefix의 마지막 번호:", current);
-
+  let current = db[prefixWithHyphen] || 0;
   const result = [];
+
   for (let i = 1; i <= count; i++) {
     const next = current + i;
     if (next > 999) {
       console.error("❌ 임의번호 999 초과");
       return res.status(400).json({ error: "❌ 임의번호 999 초과, 새로운 주/야 코드를 설정하세요." });
     }
-
-    const barcode = `${prefix}${next}`;
-    result.push(barcode);
-
-    // ✅ 디버깅 로그 3: 생성되는 각 바코드
-    console.log(`🔢 생성 바코드 [${i}]:`, barcode);
+    result.push(`${prefixWithHyphen}${next}`);
   }
 
-  db[prefix] = current + count;
-
-  // ✅ 디버깅 로그 4: 저장 직전 확인
-  console.log("💾 업데이트된 DB 내용:", db);
-
+  db[prefixWithHyphen] = current + count;
   await fs.writeJson(DB_FILE, db, { spaces: 2 });
-  console.log("✅ barcodes.json 저장 완료");
+  console.log("💾 barcodes.json 저장됨:", db);
 
-  // ✅ GitHub 업로드
-  await uploadToGitHub(BARCODES_GITHUB_FILE, DB_FILE, `📦 ${prefix} → ${db[prefix]}`);
+  // ✅ GitHub 직접 업로드
+  try {
+    const contentRaw = await fs.readFile(DB_FILE, "utf-8");
+    const contentEncoded = Buffer.from(contentRaw).toString("base64");
 
-  // ✅ 디버깅 로그 5: 최종 응답 데이터
-  console.log("📤 클라이언트로 반환할 바코드 리스트:", result);
+    let sha;
+    const shaRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${BARCODES_GITHUB_FILE}`, {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github+json"
+      }
+    });
+
+    if (shaRes.ok) {
+      const json = await shaRes.json();
+      sha = json.sha;
+    }
+
+    const uploadRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${BARCODES_GITHUB_FILE}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        "Content-Type": "application/json",
+        Accept: "application/vnd.github+json"
+      },
+      body: JSON.stringify({
+        message: `📦 ${prefixWithHyphen} → ${db[prefixWithHyphen]} (API Upload at ${new Date().toISOString()})`,
+        content: contentEncoded,
+        branch: GITHUB_BRANCH,
+        ...(sha ? { sha } : {})
+      })
+    });
+
+    const resultUpload = await uploadRes.json();
+    if (uploadRes.ok) {
+      console.log("✅ GitHub REST 업로드 성공:", resultUpload.commit.html_url);
+    } else {
+      console.error("❌ GitHub REST 업로드 실패:", resultUpload.message);
+    }
+  } catch (err) {
+    console.error("❌ REST 업로드 예외:", err.message);
+  }
+
   res.json({ barcodes: result });
 });
 
-// ✅ 설정 저장 API
+// ✅ 설정 저장 API (+ GitHub 업로드)
 app.post("/save-settings", async (req, res) => {
   try {
     const data = req.body;
@@ -84,7 +107,44 @@ app.post("/save-settings", async (req, res) => {
     await fs.writeJson(SETTINGS_FILE, data, { spaces: 2 });
     console.log("💾 설정 저장 완료");
 
-    await uploadToGitHub(SETTINGS_GITHUB_FILE, SETTINGS_FILE, `🛠️ Settings Updated`);
+    // GitHub 업로드
+    const contentRaw = await fs.readFile(SETTINGS_FILE, "utf-8");
+    const contentEncoded = Buffer.from(contentRaw).toString("base64");
+
+    let sha;
+    const shaRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${SETTINGS_GITHUB_FILE}`, {
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        Accept: "application/vnd.github+json"
+      }
+    });
+
+    if (shaRes.ok) {
+      const json = await shaRes.json();
+      sha = json.sha;
+    }
+
+    const uploadRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${SETTINGS_GITHUB_FILE}`, {
+      method: "PUT",
+      headers: {
+        Authorization: `Bearer ${GITHUB_TOKEN}`,
+        "Content-Type": "application/json",
+        Accept: "application/vnd.github+json"
+      },
+      body: JSON.stringify({
+        message: `🛠️ Settings Updated at ${new Date().toISOString()}`,
+        content: contentEncoded,
+        branch: GITHUB_BRANCH,
+        ...(sha ? { sha } : {})
+      })
+    });
+
+    const resultUpload = await uploadRes.json();
+    if (uploadRes.ok) {
+      console.log("✅ GitHub REST 업로드 성공:", resultUpload.commit.html_url);
+    } else {
+      console.error("❌ GitHub REST 업로드 실패:", resultUpload.message);
+    }
 
     res.json({ status: "ok" });
   } catch (err) {
@@ -104,52 +164,7 @@ app.get("/load-settings", async (req, res) => {
   }
 });
 
-// ✅ GitHub 업로드 함수
-async function uploadToGitHub(filename, localPath, message) {
-  try {
-    const contentRaw = await fs.readFile(localPath, "utf-8");
-    const contentEncoded = Buffer.from(contentRaw).toString("base64");
-
-    const shaRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`, {
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        Accept: "application/vnd.github+json"
-      }
-    });
-
-    let sha;
-    if (shaRes.ok) {
-      const json = await shaRes.json();
-      sha = json.sha;
-    }
-
-    const uploadRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${filename}`, {
-      method: "PUT",
-      headers: {
-        Authorization: `Bearer ${GITHUB_TOKEN}`,
-        "Content-Type": "application/json",
-        Accept: "application/vnd.github+json"
-      },
-      body: JSON.stringify({
-        message: `${message} (at ${new Date().toISOString()})`,
-        content: contentEncoded,
-        branch: GITHUB_BRANCH,
-        ...(sha ? { sha } : {})
-      })
-    });
-
-    const result = await uploadRes.json();
-    if (uploadRes.ok) {
-      console.log(`✅ GitHub 업로드 성공: ${filename}`);
-    } else {
-      console.error(`❌ GitHub 업로드 실패 [${filename}]:`, result.message);
-    }
-  } catch (err) {
-    console.error(`❌ GitHub 업로드 예외 [${filename}]:`, err.message);
-  }
-}
-
 // ✅ 서버 실행
 app.listen(PORT, () => {
-  console.log(`🚀 Barcode server running on port ${PORT}`);
+  console.log(`✅ Barcode server running on port ${PORT}`);
 });
