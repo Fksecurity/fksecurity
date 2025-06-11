@@ -1,0 +1,21 @@
+{
+  "a4": {
+    "barcodeSize": "30",
+    "textSize": "80",
+    "padding": "40"
+  },
+  "bixolon": {
+    "barcodeHeight": "80",
+    "barcodeWidth": "2",
+    "font": "FONT_A",
+    "x": "10",
+    "y": "60"
+  },
+  "label": {
+    "width": "50",
+    "height": "40",
+    "fontSize": "32",
+    "marginTop": "10",
+    "marginBottom": "10"
+  }
+}
