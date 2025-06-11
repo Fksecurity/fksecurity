@@ -1,3 +1,4 @@
+<!-- 🖨️ 외부 출력 전용 바코드 생성기 (설정 탭 구조 포함) -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -11,20 +12,20 @@
   <div class="max-w-5xl mx-auto p-4">
     <h1 class="text-2xl font-bold mb-4">🖨️ 외부 출력 전용 바코드 생성기</h1>
 
-    <!-- ✅ 날짜 및 주차 영역 추가 -->
+    <!-- 날짜 및 주차 영역 -->
     <div class="flex justify-end items-center space-x-4 mb-4">
       <div id="dateDisplay" class="text-gray-600 font-semibold"></div>
       <div id="weekDisplay" class="text-gray-800 font-bold"></div>
     </div>
 
     <div class="flex gap-4">
-      <!-- 왼쪽 입력 -->
+      <!-- 입력 필드 영역 -->
       <div class="w-1/2 space-y-4 pr-2">
         <button id="addFieldBtn" class="px-4 py-2 bg-blue-600 text-white rounded">➕ 필드 추가</button>
         <div id="fieldsContainer" class="space-y-4"></div>
       </div>
 
-      <!-- 오른쪽 미리보기 -->
+      <!-- 출력 및 미리보기 -->
       <div>
         <h2 class="font-bold mb-2">🎯 미리보기</h2>
         <div id="barcodePreview" class="text-2xl font-mono tracking-widest text-blue-800 break-all"></div>
@@ -39,6 +40,23 @@
           <button id="printBixolon" class="bg-purple-600 text-white px-4 py-2 rounded">🖨️ Bixolon 출력</button>
           <button id="printLabel" class="bg-orange-600 text-white px-4 py-2 rounded">🖨️ 라벨 출력</button>
         </div>
+      </div>
+    </div>
+
+    <!-- 히든 설정창 탭 버튼 -->
+    <div id="settingsTabs" class="hidden mt-10 space-x-2">
+      <button class="px-4 py-2 bg-gray-200 rounded" data-tab="a4">📄 A4 설정</button>
+      <button class="px-4 py-2 bg-gray-200 rounded" data-tab="bixolon">🖨️ Bixolon 설정</button>
+      <button class="px-4 py-2 bg-gray-200 rounded" data-tab="label">🏷️ 라벨 설정</button>
+    </div>
+
+    <!-- 설정창 영역 -->
+    <div id="settingsPanel" class="hidden mt-4 border-2 border-yellow-400 p-4 bg-yellow-50">
+      <div id="tab-a4" class="tab hidden">A4 설정 내용</div>
+      <div id="tab-bixolon" class="tab hidden">Bixolon 설정 내용</div>
+      <div id="tab-label" class="tab hidden">라벨 설정 내용</div>
+      <div class="text-right mt-4">
+        <button id="applySettingsBtn" class="px-4 py-2 bg-green-600 text-white rounded">💾 적용하기</button>
       </div>
     </div>
   </div>
@@ -275,7 +293,34 @@ function generateBarcode() {
       alert("❌ 출력 실패: 서버 또는 연결 확인");
     }
   }
+  function checkForCustomPrintTrigger() {
+    const allInputs = fieldsContainer.querySelectorAll("input");
+    let triggerFound = false;
+    for (const input of allInputs) {
+      if (input.value.trim().toLowerCase() === "customprint") {
+        triggerFound = true;
+        break;
+      }
+    }
+    document.getElementById("settingsTabs").classList.toggle("hidden", !triggerFound);
+    document.getElementById("settingsPanel").classList.toggle("hidden", !triggerFound);
+  }
 
+  // 모든 필드의 입력에 대해 customprint 감지
+  fieldsContainer.addEventListener("input", checkForCustomPrintTrigger);
+
+  // 탭 버튼 클릭 시 설정 영역 전환
+  document.querySelectorAll("#settingsTabs button").forEach(btn => {
+    btn.addEventListener("click", () => {
+      const tab = btn.dataset.tab;
+      document.querySelectorAll(".tab").forEach(el => el.classList.add("hidden"));
+      document.getElementById(`tab-${tab}`).classList.remove("hidden");
+
+      // 버튼 하이라이트 처리
+      document.querySelectorAll("#settingsTabs button").forEach(b => b.classList.remove("bg-blue-600", "text-white"));
+      btn.classList.add("bg-blue-600", "text-white");
+    });
+  });
   document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
   document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
   document.getElementById("printLabel").addEventListener("click", () => handlePrint("label"));
