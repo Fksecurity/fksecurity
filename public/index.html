@@ -179,52 +179,50 @@ async function handlePrint(type) {
       win.focus();
       win.print();
 
-} else if (type === "label") {
-  const win = window.open('', '_blank');
-  const layout = `
-    width:50mm; height:40mm;
-    margin:0; padding:5mm;
-    display:flex; flex-direction:column;
-    align-items:center; justify-content:center;
-    font-size:12pt;
-  `;
+    } else if (type === "label") {
+      const win = window.open('', '_blank');
+      const layout = `
+        width:50mm; height:40mm;
+        margin:0; padding:5mm;
+        display:flex; flex-direction:column;
+        align-items:center; justify-content:center;
+        font-size:12pt;
+      `;
 
-  win.document.write(`
-    <html><head><title>라벨 출력</title>
-    <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-    <style>
-      body { margin:0; }
-      .barcode-label {
-        page-break-after: always;
-        display: flex;
-        flex-direction: column;
-        justify-content: center;
-        align-items: center;
-        width: 50mm;
-        height: 40mm;
-      }
-      .barcode-font {
-        font-family: 'Libre Barcode 128', monospace;
-        font-size: 32pt;
-        white-space: nowrap;
-        overflow: hidden;
-      }
-    </style>
-    </head>
-    <body>
-      ${barcodes.map(code => `
-        <div class="barcode-label">
-          <div>${code}</div>
-          <div class="barcode-font">*${code}*</div>
-        </div>
-      `).join("")}
-    </body></html>
-  `);
-
-  win.document.close();
-  win.focus();
-  win.print();
-}
+      win.document.write(`
+        <html><head><title>라벨 출력</title>
+        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+        <style>
+          body { margin:0; }
+          .barcode-label {
+            page-break-after: always;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            width: 50mm;
+            height: 40mm;
+          }
+          .barcode-font {
+            font-family: 'Libre Barcode 128', monospace;
+            font-size: 32pt;
+            white-space: nowrap;
+            overflow: hidden;
+          }
+        </style>
+        </head>
+        <body>
+          ${barcodes.map(code => `
+            <div class="barcode-label">
+              <div>${code}</div>
+              <div class="barcode-font">*${code}*</div>
+            </div>
+          `).join("")}
+        </body></html>
+      `);
+      win.document.close();
+      win.focus();
+      win.print();
 
     } else if (type === "bixolon") {
       for (const code of barcodes) {
@@ -249,9 +247,7 @@ async function handlePrint(type) {
               height: 80,
               hri: true
             },
-            {
-              cmd: "printBuffer"
-            }
+            { cmd: "printBuffer" }
           ]
         };
 
