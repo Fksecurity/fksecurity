@@ -131,7 +131,7 @@
 
     const prefix = prefixParts.filter(p => p !== "").join("");
 
-    const response = await fetch("https://fksecurity.onrender.com/generate", {
+    const response = await fetch("https://fksecurity.onrender.com/next-barcode", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ prefix, mode: modeCode || "A", count })
