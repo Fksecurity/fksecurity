@@ -8,17 +8,16 @@ import simpleGit from "simple-git";
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_FILE = join(__dirname, "barcodes.json");
 
-// ✅ Git 초기화
+// ✅ Git 초기화 및 설정
 const git = simpleGit();
 await git.addConfig("user.name", "fksecurity-bot");
 await git.addConfig("user.email", "fksecurity@render.com");
 
 const REMOTE_URL = process.env.GIT_REMOTE_URL;
 
-// ✅ origin 연결 상태 로그
+// ✅ origin 연결 확인 및 설정
 const remotes = await git.getRemotes(true);
 console.log("📡 현재 Git remotes:", remotes);
-
 if (!remotes.find(r => r.name === "origin") && REMOTE_URL) {
   await git.addRemote("origin", REMOTE_URL);
   console.log("🔗 origin remote 연결됨:", REMOTE_URL);
@@ -69,13 +68,20 @@ app.post("/next-barcode", async (req, res) => {
     console.error("❌ 파일 저장 실패:", err.message);
   }
 
-  // ✅ GitHub push 시도
+  // ✅ GitHub push 시도 (변경 있을 때만)
   try {
     if (REMOTE_URL) {
       await git.add(DB_FILE);
-      await git.commit(`🔄 ${prefix} → ${db[prefix]} (Auto push at ${new Date().toISOString()})`);
-      await git.push("origin", "main");
-      console.log("🚀 GitHub에 push 완료");
+      const status = await git.status();
+      console.log("📂 git status:", status.files);
+
+      if (status.files.length > 0) {
+        await git.commit(`🔄 ${prefix} → ${db[prefix]} (Auto push at ${new Date().toISOString()})`);
+        await git.push("origin", "main");
+        console.log("🚀 GitHub에 push 완료");
+      } else {
+        console.log("🟡 변경 사항 없음 → 커밋/푸시 생략");
+      }
     } else {
       console.warn("⚠️ REMOTE_URL 미설정 → push 생략");
     }
