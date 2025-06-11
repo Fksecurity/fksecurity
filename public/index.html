@@ -154,7 +154,7 @@ async function getFinalBarcodesFromServer(count) {
 }
 
 
- async function handlePrint(type) {
+async function handlePrint(type) {
   try {
     const count = parseInt(document.getElementById("printCount").value || "1");
     const barcodes = await getFinalBarcodesFromServer(count);
@@ -198,22 +198,50 @@ async function getFinalBarcodesFromServer(count) {
 
     } else if (type === "bixolon") {
       for (const code of barcodes) {
-        const payload = JSON.stringify({
+        const payload = {
           version: "1.0",
           commands: [
-            { cmd: "printText", text: code, x: 10, y: 10, font: "FONT_A", hFactor: 2, vFactor: 2 },
-            { cmd: "printBarcode", type: "Code128", text: code, x: 10, y: 50, height: 50 }
+            {
+              cmd: "drawDeviceFont",
+              text: code,
+              x: 10,
+              y: 10,
+              font: "FONT_A",
+              scale: 2
+            },
+            {
+              cmd: "printBarcode",
+              type: "CODE128",
+              text: code,
+              x: 10,
+              y: 60,
+              width: 2,
+              height: 80,
+              hri: true
+            },
+            {
+              cmd: "printBuffer"
+            }
           ]
+        };
+
+        await fetch("http://127.0.0.1:9200/WebPrintSDK/printe1", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/x-www-form-urlencoded"
+          },
+          body: "data=" + encodeURIComponent(JSON.stringify(payload))
         });
-        await requestPrint("SLP-DX423", payload);
       }
       alert("✅ Bixolon 출력 완료");
     }
+
   } catch (err) {
     console.error(err);
     alert("❌ 출력 실패: 서버 또는 연결 확인");
   }
 }
+
 
   document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
   document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
