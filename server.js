@@ -9,7 +9,7 @@ const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_FILE = join(__dirname, "barcodes.json");
 
 const app = express();
-const PORT = 3000;
+const PORT = process.env.PORT || 3000; // ✅ Render 대응용 포트 설정
 
 app.use(cors());
 app.use(express.json());
@@ -39,5 +39,5 @@ app.post("/next-barcode", async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`✅ Barcode server running at http://localhost:${PORT}`);
+  console.log(`✅ Barcode server running on port ${PORT}`);
 });
