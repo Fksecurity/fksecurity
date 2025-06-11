@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📦 외부 바코드 출력기</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+
+</head>
+<body class="bg-gray-100 text-sm">
+  <div class="max-w-5xl mx-auto p-4">
+    <h1 class="text-2xl font-bold mb-4">🖨️ 외부 출력 전용 바코드 생성기</h1>
+
+<div class="flex gap-4">
+  <!-- 왼쪽 설정 영역: 스크롤 처리 추가 -->
+<div class="w-1/2 space-y-4 pr-2">
+    <button id="addFieldBtn" class="px-4 py-2 bg-blue-600 text-white rounded">➕ 필드 추가</button>
+    <div id="fieldsContainer" class="space-y-4"></div>
+  </div>
+
+  <!-- 오른쪽 미리보기 영역: 고정 높이 및 내용 박스 -->
+<div class="flex gap-4 items-start">
+    <h2 class="font-bold mb-2">🎯 미리보기</h2>
+    <div id="barcodePreview" class="text-2xl font-mono tracking-widest text-blue-800 break-all"></div>
+  </div>
+  <div class="flex gap-2 mt-6">
+  <button id="printA4" class="bg-blue-600 text-white px-4 py-2 rounded">🖨️ A4 출력</button>
+  <button id="printBixolon" class="bg-purple-600 text-white px-4 py-2 rounded">🖨️ Bixolon 출력</button>
+  <button id="printLabel" class="bg-orange-600 text-white px-4 py-2 rounded">🖨️ 라벨 출력</button>
+</div>
+</div>
+  </div>
+
+<script>
+  const fieldsContainer = document.getElementById("fieldsContainer");
+  const barcodePreview = document.getElementById("barcodePreview");
+  const addFieldBtn = document.getElementById("addFieldBtn");
+
+  let currentBarcodeParts = [];
+
+  addFieldBtn.addEventListener("click", () => {
+    const wrapper = document.createElement("div");
+    wrapper.className = "flex items-center gap-2";
+
+    const select = document.createElement("select");
+    select.className = "border p-2 rounded";
+    select.innerHTML = `
+      <option value="fixed">고정값</option>
+      <option value="dynamic">변동값</option>
+      <option value="serial">임의번호</option>
+      <option value="shift">모드 선택</option>
+    `;
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "border p-2 rounded w-48";
+    input.placeholder = "값 입력 또는 자동";
+
+    wrapper.appendChild(select);
+    wrapper.appendChild(input);
+    fieldsContainer.appendChild(wrapper);
+
+    select.addEventListener("change", () => {
+      const modeDropdown = wrapper.querySelector("select.mode-select");
+      if (modeDropdown) modeDropdown.remove(); // 기존 모드 드롭다운 제거
+
+      if (select.value === "fixed") {
+        input.disabled = false;
+        input.value = "";
+        if (!wrapper.contains(input)) wrapper.appendChild(input);
+      } else if (select.value === "dynamic") {
+        input.disabled = false;
+        input.value = "(자동 검색)";
+        if (!wrapper.contains(input)) wrapper.appendChild(input);
+      } else if (select.value === "serial") {
+        input.disabled = true;
+        input.value = "(자동 부여)";
+        if (!wrapper.contains(input)) wrapper.appendChild(input);
+      } else if (select.value === "shift") {
+        input.remove(); // input 제거
+        const dropdown = document.createElement("select");
+        dropdown.className = "border p-2 rounded mode-select";
+        dropdown.innerHTML = `<option value="모드 A">모드 A</option><option value="모드 B">모드 B</option>`;
+        wrapper.appendChild(dropdown);
+
+        dropdown.addEventListener("change", generateBarcode);
+      }
+      generateBarcode();
+    });
+
+    input.addEventListener("input", generateBarcode);
+
+    generateBarcode();
+  });
+
+  function generateBarcode() {
+    const parts = [];
+    for (const wrapper of fieldsContainer.children) {
+      const selectType = wrapper.querySelector("select:first-child");
+      const valueInput = wrapper.querySelector("input, select.mode-select");
+
+      if (!selectType || !valueInput) continue;
+
+      if (selectType.value === "shift") {
+        parts.push(valueInput.value === "모드 A" ? "0" : "5");
+      } else {
+        if (!valueInput.disabled && valueInput.value) {
+          parts.push(valueInput.value);
+        }
+      }
+    }
+    barcodePreview.textContent = parts.join("");
+  }
+
+  // 🔵 A4 출력
+  document.getElementById("printA4").addEventListener("click", () => {
+    const content = barcodePreview.textContent;
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html><head><title>바코드 출력</title>
+      <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+      </head>
+      <body style="padding:40px; font-size:80pt; text-align:center;">
+        <div>${content}</div>
+        <div style="font-family: 'Libre Barcode 128', monospace; font-size: 30pt; margin-top: 40px;">*${content}*</div>
+      </body></html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  });
+
+  // 🟣 Bixolon 출력
+  document.getElementById("printBixolon").addEventListener("click", () => {
+    const barcode = barcodePreview.textContent;
+    const payload = JSON.stringify({
+      version: "1.0",
+      commands: [
+        { cmd: "printText", text: barcode, x: 10, y: 10, font: "FONT_A", hFactor: 2, vFactor: 2 },
+        { cmd: "printBarcode", type: "Code128", text: barcode, x: 10, y: 50, height: 50 }
+      ]
+    });
+    requestPrint("SLP-DX423", payload, () => alert("✅ Bixolon 출력 완료"));
+  });
+
+  // 🟠 라벨 출력 (PDF 방식, 50mm x 40mm)
+  document.getElementById("printLabel").addEventListener("click", () => {
+    const content = barcodePreview.textContent;
+    const win = window.open('', '_blank');
+    win.document.write(`
+      <html><head><title>라벨 출력</title>
+      <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+      </head>
+      <body style="width:50mm; height:40mm; margin:0; padding:5mm; font-size:12pt; display:flex; flex-direction:column; align-items:center; justify-content:center;">
+        <div>${content}</div>
+        <div style="font-family: 'Libre Barcode 128', monospace; font-size: 32pt;">*${content}*</div>
+      </body></html>
+    `);
+    win.document.close();
+    win.focus();
+    win.print();
+  });
+    function requestPrint(printerName, payload, callback) {
+    fetch(`http://127.0.0.1:9200/WebPrintSDK/${printerName}`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/x-www-form-urlencoded"
+      },
+      body: `param=${encodeURIComponent(payload)}`
+    })
+    .then(res => {
+      if (!res.ok) throw new Error("❌ Bixolon 프린트 실패");
+      return res.text();
+    })
+    .then(text => {
+      console.log("📦 Bixolon 응답:", text);
+      if (callback) callback();
+    })
+    .catch(err => {
+      console.error(err);
+      alert("❌ Bixolon 출력 실패: WebDriver 실행 중인지 확인하세요.");
+    });
+  }
+</script>
+
+</body>
+</html>

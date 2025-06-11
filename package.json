@@ -1,0 +1,13 @@
+{
+  "name": "barcode-server",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "server.js",
+  "dependencies": {
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "fs-extra": "^11.3.0",
+    "node": "^24.2.0",
+    "server.js": "^1.0.0"
+  }
+}
