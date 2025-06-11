@@ -8,6 +8,7 @@ import { Buffer } from "buffer";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const DB_FILE = join(__dirname, "barcodes.json");
+const SETTINGS_FILE = join(__dirname, "load-settings.json");
 
 const GITHUB_TOKEN = process.env.GITHUB_TOKEN;
 const GITHUB_REPO = "Fksecurity/fksecurity";
@@ -95,6 +96,31 @@ app.post("/next-barcode", async (req, res) => {
   }
 
   res.json({ barcodes: result });
+});
+
+// ✅ 설정 저장
+app.post("/save-settings", async (req, res) => {
+  try {
+    const data = req.body;
+    if (!data) return res.status(400).json({ error: "Invalid body" });
+    await fs.writeJson(SETTINGS_FILE, data, { spaces: 2 });
+    console.log("💾 설정 저장 완료");
+    res.json({ status: "ok" });
+  } catch (err) {
+    console.error("❌ 설정 저장 실패:", err);
+    res.status(500).json({ error: "Server error" });
+  }
+});
+
+// ✅ 설정 불러오기
+app.get("/load-settings", async (req, res) => {
+  try {
+    const data = await fs.readJson(SETTINGS_FILE);
+    res.json(data);
+  } catch (err) {
+    console.warn("⚠️ 설정 로드 실패 (기본값 사용)");
+    res.json({});
+  }
 });
 
 // ✅ 서버 실행
