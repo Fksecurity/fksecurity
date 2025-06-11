@@ -11,12 +11,11 @@
   <div class="max-w-5xl mx-auto p-4">
     <h1 class="text-2xl font-bold mb-4">🖨️ 외부 출력 전용 바코드 생성기</h1>
 
-<!-- ✅ 날짜 및 주차 영역 추가 -->
-<div class="flex justify-end items-center space-x-4 mb-4">
-  <div id="dateDisplay" class="text-gray-600 font-semibold"></div>
-  <div id="weekDisplay" class="text-gray-800 font-bold"></div>
-</div>
-
+    <!-- ✅ 날짜 및 주차 영역 추가 -->
+    <div class="flex justify-end items-center space-x-4 mb-4">
+      <div id="dateDisplay" class="text-gray-600 font-semibold"></div>
+      <div id="weekDisplay" class="text-gray-800 font-bold"></div>
+    </div>
 
     <div class="flex gap-4">
       <!-- 왼쪽 입력 -->
@@ -116,169 +115,10 @@
     barcodePreview.textContent = parts.join("");
   }
 
-async function getFinalBarcodesFromServer(count) {
-  const combinedParts = [];
-  let modeCode = null;
-
-  for (const wrapper of fieldsContainer.children) {
-    const selectType = wrapper.querySelector("select:first-child");
-    const valueInput = wrapper.querySelector("input, select.mode-select");
-
-    if (!selectType || !valueInput) continue;
-
-    if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "0" : "5";
-    } else if (selectType.value === "serial") {
-      continue;
-    } else {
-      combinedParts.push(valueInput.value.trim());
-    }
-  }
-
-  // ✅ 가장 마지막 숫자 또는 숫자로 끝나는 문자열에 모드코드 붙이기
-  for (let i = combinedParts.length - 1; i >= 0; i--) {
-    if (modeCode !== null && /^\d+$/.test(combinedParts[i])) {
-      combinedParts[i] += modeCode;
-      break;
-    }
-    if (modeCode !== null && /\d{2}$/.test(combinedParts[i])) {
-      combinedParts[i] = combinedParts[i].replace(/(\d{2})$/, `$1${modeCode}`);
-      break;
-    }
-  }
-
-  const finalPrefix = combinedParts.join("");
-
-  const response = await fetch("https://fksecurity.onrender.com/next-barcode", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ prefix: finalPrefix, count })
-  });
-
-  if (!response.ok) throw new Error("❌ 서버 오류");
-  const data = await response.json();
-  return data.barcodes;
-}
-
-
-async function handlePrint(type) {
-  try {
-    const count = parseInt(document.getElementById("printCount").value || "1");
-    const barcodes = await getFinalBarcodesFromServer(count);
-
-    barcodePreview.textContent = barcodes.join(", ");
-
-    if (type === "a4") {
-      const win = window.open('', '_blank');
-      const layout = "padding:40px; text-align:center; font-size:80pt;";
-      const barcodeSize = "30pt";
-
-      win.document.write(`
-        <html><head><title>바코드 출력</title>
-        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-        </head>
-        <body style="${layout}">
-          <div>${barcodes[0]}</div>
-          <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${barcodeSize}; margin-top: 40px;">*${barcodes[0]}*</div>
-        </body></html>
-      `);
-      win.document.close();
-      win.focus();
-      win.print();
-
-    } else if (type === "label") {
-      const win = window.open('', '_blank');
-      const layout = `
-        width:50mm; height:40mm;
-        margin:0; padding:5mm;
-        display:flex; flex-direction:column;
-        align-items:center; justify-content:center;
-        font-size:12pt;
-      `;
-
-      win.document.write(`
-        <html><head><title>라벨 출력</title>
-        <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
-        <style>
-          body { margin:0; }
-          .barcode-label {
-            page-break-after: always;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-            align-items: center;
-            width: 50mm;
-            height: 40mm;
-          }
-          .barcode-font {
-            font-family: 'Libre Barcode 128', monospace;
-            font-size: 32pt;
-            white-space: nowrap;
-            overflow: hidden;
-          }
-        </style>
-        </head>
-        <body>
-          ${barcodes.map(code => `
-            <div class="barcode-label">
-              <div>${code}</div>
-              <div class="barcode-font">*${code}*</div>
-            </div>
-          `).join("")}
-        </body></html>
-      `);
-      win.document.close();
-      win.focus();
-      win.print();
-
-    } else if (type === "bixolon") {
-      for (const code of barcodes) {
-        const payload = {
-          version: "1.0",
-          commands: [
-            {
-              cmd: "drawDeviceFont",
-              text: code,
-              x: 10,
-              y: 10,
-              font: "FONT_A",
-              scale: 2
-            },
-            {
-              cmd: "printBarcode",
-              type: "CODE128",
-              text: code,
-              x: 10,
-              y: 60,
-              width: 2,
-              height: 80,
-              hri: true
-            },
-            { cmd: "printBuffer" }
-          ]
-        };
-
-        await fetch("http://127.0.0.1:9200/WebPrintSDK/printe1", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/x-www-form-urlencoded"
-          },
-          body: "data=" + encodeURIComponent(JSON.stringify(payload))
-        });
-      }
-      alert("✅ Bixolon 출력 완료");
-    }
-
-  } catch (err) {
-    console.error(err);
-    alert("❌ 출력 실패: 서버 또는 연결 확인");
-  }
-
   function getKoreanWeekNumber(date) {
     const sundayBased = new Date(date);
     const day = sundayBased.getDay();
-    sundayBased.setDate(sundayBased.getDate() - day); // 가장 가까운 일요일로 이동
-
+    sundayBased.setDate(sundayBased.getDate() - day);
     const startOfYear = new Date(sundayBased.getFullYear(), 0, 1);
     const diff = sundayBased - startOfYear;
     const oneWeek = 1000 * 60 * 60 * 24 * 7;
@@ -289,22 +129,134 @@ async function handlePrint(type) {
   function updateDateAndWeek() {
     const now = new Date();
     const week = getKoreanWeekNumber(now);
-
     const dateText = now.toLocaleDateString("ko-KR", {
       year: "numeric",
       month: "long",
       day: "numeric",
       weekday: "long"
     });
-
     document.getElementById("dateDisplay").textContent = `🕒 ${dateText}`;
     document.getElementById("weekDisplay").textContent = `📅 ${week}주차`;
   }
 
   updateDateAndWeek();
 
-}
+  async function getFinalBarcodesFromServer(count) {
+    const combinedParts = [];
+    let modeCode = null;
+    for (const wrapper of fieldsContainer.children) {
+      const selectType = wrapper.querySelector("select:first-child");
+      const valueInput = wrapper.querySelector("input, select.mode-select");
+      if (!selectType || !valueInput) continue;
+      if (selectType.value === "shift") {
+        modeCode = valueInput.value === "모드 A" ? "0" : "5";
+      } else if (selectType.value === "serial") {
+        continue;
+      } else {
+        combinedParts.push(valueInput.value.trim());
+      }
+    }
+    for (let i = combinedParts.length - 1; i >= 0; i--) {
+      if (modeCode !== null && /^\d+$/.test(combinedParts[i])) {
+        combinedParts[i] += modeCode;
+        break;
+      }
+      if (modeCode !== null && /\d{2}$/.test(combinedParts[i])) {
+        combinedParts[i] = combinedParts[i].replace(/(\d{2})$/, `$1${modeCode}`);
+        break;
+      }
+    }
+    const finalPrefix = combinedParts.join("");
+    const response = await fetch("https://fksecurity.onrender.com/next-barcode", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ prefix: finalPrefix, count })
+    });
+    if (!response.ok) throw new Error("❌ 서버 오류");
+    const data = await response.json();
+    return data.barcodes;
+  }
 
+  async function handlePrint(type) {
+    try {
+      const count = parseInt(document.getElementById("printCount").value || "1");
+      const barcodes = await getFinalBarcodesFromServer(count);
+      barcodePreview.textContent = barcodes.join(", ");
+      if (type === "a4") {
+        const win = window.open('', '_blank');
+        const layout = "padding:40px; text-align:center; font-size:80pt;";
+        const barcodeSize = "30pt";
+        win.document.write(`
+          <html><head><title>바코드 출력</title>
+          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+          </head>
+          <body style="${layout}">
+            <div>${barcodes[0]}</div>
+            <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${barcodeSize}; margin-top: 40px;">*${barcodes[0]}*</div>
+          </body></html>
+        `);
+        win.document.close();
+        win.focus();
+        win.print();
+      } else if (type === "label") {
+        const win = window.open('', '_blank');
+        win.document.write(`
+          <html><head><title>라벨 출력</title>
+          <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+          <style>
+            body { margin:0; }
+            .barcode-label {
+              page-break-after: always;
+              display: flex;
+              flex-direction: column;
+              justify-content: center;
+              align-items: center;
+              width: 50mm;
+              height: 40mm;
+            }
+            .barcode-font {
+              font-family: 'Libre Barcode 128', monospace;
+              font-size: 32pt;
+              white-space: nowrap;
+              overflow: hidden;
+            }
+          </style>
+          </head>
+          <body>
+            ${barcodes.map(code => `
+              <div class="barcode-label">
+                <div>${code}</div>
+                <div class="barcode-font">*${code}*</div>
+              </div>
+            `).join("")}
+          </body></html>
+        `);
+        win.document.close();
+        win.focus();
+        win.print();
+      } else if (type === "bixolon") {
+        for (const code of barcodes) {
+          const payload = {
+            version: "1.0",
+            commands: [
+              { cmd: "drawDeviceFont", text: code, x: 10, y: 10, font: "FONT_A", scale: 2 },
+              { cmd: "printBarcode", type: "CODE128", text: code, x: 10, y: 60, width: 2, height: 80, hri: true },
+              { cmd: "printBuffer" }
+            ]
+          };
+          await fetch("http://127.0.0.1:9200/WebPrintSDK/printe1", {
+            method: "POST",
+            headers: { "Content-Type": "application/x-www-form-urlencoded" },
+            body: "data=" + encodeURIComponent(JSON.stringify(payload))
+          });
+        }
+        alert("✅ Bixolon 출력 완료");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("❌ 출력 실패: 서버 또는 연결 확인");
+    }
+  }
 
   document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
   document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
