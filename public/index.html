@@ -275,6 +275,8 @@ async function handlePrint(type) {
     const barcodes = await getFinalBarcodesFromServer(count);
     barcodePreview.textContent = barcodes.join(", ");
 
+    const { jsPDF } = window.jspdf;
+
     if (type === "bixolon") {
       const bix = {
         height: parseInt(document.getElementById("bix-barcodeHeight")?.value) || 80,
@@ -302,58 +304,63 @@ async function handlePrint(type) {
       return;
     }
 
-    // 📌 팝업 먼저 띄우기 (popup 차단 방지)
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) {
-      alert("❌ 인쇄 창이 차단되었습니다. 팝업 차단을 해제해주세요.");
-      return;
+    let pdf;
+    if (type === "label") {
+      pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: [50, 40] });
+      for (let i = 0; i < barcodes.length; i++) {
+        const code = barcodes[i];
+        if (i > 0) pdf.addPage([50, 40]);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 400;
+        canvas.height = 200;
+        await bwipjs.toCanvas(canvas, {
+          bcid: "code128",
+          text: code,
+          scale: 3,
+          height: 10,
+          includetext: true,
+          textxalign: "center",
+          textsize: 8
+        });
+        const img = canvas.toDataURL("image/png");
+        pdf.setDrawColor(0);
+        pdf.setLineWidth(0.5);
+        pdf.rect(0.5, 0.5, 49, 39);
+        pdf.addImage(img, "PNG", 6, 6, 38, 28);
+      }
+    } else if (type === "a4") {
+      pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      for (let i = 0; i < barcodes.length; i++) {
+        const code = barcodes[i];
+        const canvas = document.createElement("canvas");
+        canvas.width = 800;
+        canvas.height = 300;
+        await bwipjs.toCanvas(canvas, {
+          bcid: "code128",
+          text: code,
+          scale: 5,
+          height: 12,
+          includetext: true,
+          textxalign: "center",
+          textsize: 30
+        });
+        const img = canvas.toDataURL("image/png");
+        pdf.addImage(img, "PNG", 75, 70, 150, 50);
+        if (i < barcodes.length - 1) pdf.addPage();
+      }
     }
 
-    const doc = new jsPDF({ unit: "pt", format: "a4" });
-
-    if (type === "a4") {
-      const scale = parseInt(document.getElementById("a4-scale").value) || 3;
-      const includetext = (document.getElementById("a4-includetext").value.toLowerCase() === "true");
-      const textsize = parseInt(document.getElementById("a4-textsize").value) || 14;
-      const margin = parseInt(document.getElementById("a4-margin").value) || 40;
-
-      let y = margin;
-      for (let i = 0; i < count; i++) {
-        const canvas = await generateBarcodeCanvas(barcodes[i], { scale, height: 50, includetext, textsize });
-        const imgData = canvas.toDataURL('image/png');
-        doc.addImage(imgData, 'PNG', 40, y, canvas.width * 0.75, canvas.height * 0.75);
-        y += canvas.height * 0.75 + margin;
-        if (i < count - 1) doc.addPage();
-      }
-    } else if (type === "label") {
-      const scale = parseInt(document.getElementById("label-scale").value) || 3;
-      const includetext = (document.getElementById("label-includetext").value.toLowerCase() === "true");
-      const textsize = parseInt(document.getElementById("label-textsize").value) || 14;
-      const widthMm = parseInt(document.getElementById("label-width").value) || 50;
-      const heightMm = parseInt(document.getElementById("label-height").value) || 40;
-
-      const widthPt = widthMm * 2.8346;
-      const heightPt = heightMm * 2.8346;
-
-      for (let i = 0; i < count; i++) {
-        const canvas = await generateBarcodeCanvas(barcodes[i], { scale, height: 50, includetext, textsize });
-        const imgData = canvas.toDataURL('image/png');
-        doc.addImage(imgData, 'PNG', 10, 10, widthPt - 20, heightPt - 20);
-        if (i < count - 1) doc.addPage();
-      }
-    }
-
-    doc.autoPrint();  // 📎 인쇄 명령 넣고
-
-    // 🎯 blob 생성 → URL → 새창에 주입
-    doc.output("blob").then((pdfBlob) => {
-      const url = URL.createObjectURL(pdfBlob);
-      printWindow.location.href = url;
-    });
+    // ✅ 인쇄 명령 및 창 열기
+    pdf.autoPrint();
+    const blob = await pdf.output("blob");
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+    console.log("📦 Blob 출력 확인:", blob);
 
   } catch (err) {
-    console.error(err);
-    alert("❌ 출력 실패: 서버 또는 연결 확인");
+    console.error("💥 출력 실패:", err);
+    alert("❌ 출력 실패: 서버 또는 연결 상태 확인!");
   }
 }
 
