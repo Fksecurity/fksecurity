@@ -276,14 +276,36 @@ async function handlePrint(type) {
     barcodePreview.textContent = barcodes.join(", ");
 
     if (type === "bixolon") {
-      // ... 생략 ...
+      const bix = {
+        height: parseInt(document.getElementById("bix-barcodeHeight")?.value) || 80,
+        width: parseInt(document.getElementById("bix-barcodeWidth")?.value) || 2,
+        font: document.getElementById("bix-font")?.value || "FONT_A",
+        x: parseInt(document.getElementById("bix-x")?.value) || 10,
+        y: parseInt(document.getElementById("bix-y")?.value) || 60
+      };
+      for (const code of barcodes) {
+        const payload = {
+          version: "1.0",
+          commands: [
+            { cmd: "drawDeviceFont", text: code, x: bix.x, y: bix.y - 50, font: bix.font, scale: 2 },
+            { cmd: "printBarcode", type: "CODE128", text: code, x: bix.x, y: bix.y, width: bix.width, height: bix.height, hri: true },
+            { cmd: "printBuffer" }
+          ]
+        };
+        await fetch("http://127.0.0.1:9200/WebPrintSDK/printe1", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "data=" + encodeURIComponent(JSON.stringify(payload))
+        });
+      }
+      alert("✅ Bixolon 출력 완료");
       return;
     }
 
-    // ⛳ 팝업 먼저 띄움
+    // 📌 팝업 먼저 띄우기 (popup 차단 방지)
     const printWindow = window.open('', '_blank');
     if (!printWindow) {
-      alert("❌ 인쇄 창이 차단되었습니다. 팝업 차단 설정을 확인해주세요.");
+      alert("❌ 인쇄 창이 차단되었습니다. 팝업 차단을 해제해주세요.");
       return;
     }
 
@@ -321,11 +343,13 @@ async function handlePrint(type) {
       }
     }
 
-    doc.autoPrint();
-    const pdfBlob = doc.output("blob");
-    const pdfUrl = URL.createObjectURL(new Blob([pdfBlob], { type: "application/pdf" }));
+    doc.autoPrint();  // 📎 인쇄 명령 넣고
 
-    printWindow.location.href = pdfUrl;
+    // 🎯 blob 생성 → URL → 새창에 주입
+    doc.output("blob").then((pdfBlob) => {
+      const url = URL.createObjectURL(pdfBlob);
+      printWindow.location.href = url;
+    });
 
   } catch (err) {
     console.error(err);
