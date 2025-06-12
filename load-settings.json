@@ -1,8 +1,9 @@
 {
   "a4": {
-    "barcodeSize": "30",
-    "textSize": "80",
-    "padding": "40"
+    "scale": "3",
+    "includetext": "true",
+    "textsize": "14",
+    "margin": "40"
   },
   "bixolon": {
     "barcodeHeight": "80",
@@ -14,8 +15,8 @@
   "label": {
     "width": "50",
     "height": "40",
-    "fontSize": "32",
-    "marginTop": "10",
-    "marginBottom": "10"
+    "scale": "3",
+    "includetext": "true",
+    "textsize": "14"
   }
 }
