@@ -276,29 +276,14 @@ async function handlePrint(type) {
     barcodePreview.textContent = barcodes.join(", ");
 
     if (type === "bixolon") {
-      const bix = {
-        height: parseInt(document.getElementById("bix-barcodeHeight")?.value) || 80,
-        width: parseInt(document.getElementById("bix-barcodeWidth")?.value) || 2,
-        font: document.getElementById("bix-font")?.value || "FONT_A",
-        x: parseInt(document.getElementById("bix-x")?.value) || 10,
-        y: parseInt(document.getElementById("bix-y")?.value) || 60
-      };
-      for (const code of barcodes) {
-        const payload = {
-          version: "1.0",
-          commands: [
-            { cmd: "drawDeviceFont", text: code, x: bix.x, y: bix.y - 50, font: bix.font, scale: 2 },
-            { cmd: "printBarcode", type: "CODE128", text: code, x: bix.x, y: bix.y, width: bix.width, height: bix.height, hri: true },
-            { cmd: "printBuffer" }
-          ]
-        };
-        await fetch("http://127.0.0.1:9200/WebPrintSDK/printe1", {
-          method: "POST",
-          headers: { "Content-Type": "application/x-www-form-urlencoded" },
-          body: "data=" + encodeURIComponent(JSON.stringify(payload))
-        });
-      }
-      alert("✅ Bixolon 출력 완료");
+      // ... 생략 ...
+      return;
+    }
+
+    // ⛳ 팝업 먼저 띄움
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) {
+      alert("❌ 인쇄 창이 차단되었습니다. 팝업 차단 설정을 확인해주세요.");
       return;
     }
 
@@ -336,15 +321,18 @@ async function handlePrint(type) {
       }
     }
 
-    // ✅ 인쇄창 자동 열기
     doc.autoPrint();
-    window.open(doc.output("bloburl"), "_blank");
+    const pdfBlob = doc.output("blob");
+    const pdfUrl = URL.createObjectURL(new Blob([pdfBlob], { type: "application/pdf" }));
+
+    printWindow.location.href = pdfUrl;
 
   } catch (err) {
     console.error(err);
     alert("❌ 출력 실패: 서버 또는 연결 확인");
   }
 }
+
 
 // 커스텀 프린트 트리거 감지 및 설정창 토글
 function checkForCustomPrintTrigger() {
