@@ -258,7 +258,7 @@ if (type === "a4") {
       ${barcodes.map(code => `
         <div class="barcode-item">
           <div>${code}</div>
-          <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${a4.barcodeSize}pt; margin-top: 40px;">*${code}*</div>
+          <div style="font-family: 'Libre Barcode 128', monospace; font-size: ${a4.barcodeSize}pt; margin-top: 40px;">${code}</div>
         </div>
       `).join('')}
     </body></html>
@@ -297,7 +297,7 @@ else if (type === "label") {
           ${barcodes.map(code => `
             <div class="barcode-label">
               <div>${code}</div>
-              <div class="barcode-font">*${code}*</div>
+              <div class="barcode-font">${code}</div>
             </div>
           `).join("")}
         </body></html>
