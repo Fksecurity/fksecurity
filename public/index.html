@@ -276,7 +276,6 @@ async function handlePrint(type) {
     barcodePreview.textContent = barcodes.join(", ");
 
     if (type === "bixolon") {
-      // Bixolon 출력
       const bix = {
         height: parseInt(document.getElementById("bix-barcodeHeight")?.value) || 80,
         width: parseInt(document.getElementById("bix-barcodeWidth")?.value) || 2,
@@ -319,8 +318,7 @@ async function handlePrint(type) {
         y += canvas.height * 0.75 + margin;
         if (i < count - 1) doc.addPage();
       }
-    }
-    else if (type === "label") {
+    } else if (type === "label") {
       const scale = parseInt(document.getElementById("label-scale").value) || 3;
       const includetext = (document.getElementById("label-includetext").value.toLowerCase() === "true");
       const textsize = parseInt(document.getElementById("label-textsize").value) || 14;
@@ -338,7 +336,9 @@ async function handlePrint(type) {
       }
     }
 
-    doc.save(type === "a4" ? "barcode_a4.pdf" : "barcode_label.pdf");
+    // ✅ 인쇄창 자동 열기
+    doc.autoPrint();
+    window.open(doc.output("bloburl"), "_blank");
 
   } catch (err) {
     console.error(err);
