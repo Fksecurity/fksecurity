@@ -334,8 +334,8 @@ async function handlePrint(type) {
       for (let i = 0; i < barcodes.length; i++) {
         const code = barcodes[i];
         const canvas = document.createElement("canvas");
-        canvas.width = 800;
-        canvas.height = 300;
+        canvas.width = 1200;
+        canvas.height = 400;
         await bwipjs.toCanvas(canvas, {
           bcid: "code128",
           text: code,
@@ -346,7 +346,7 @@ async function handlePrint(type) {
           textsize: 30
         });
         const img = canvas.toDataURL("image/png");
-        pdf.addImage(img, "PNG", 75, 70, 150, 50);
+        pdf.addImage(img, "PNG", 40, 70, 150, 50);
         if (i < barcodes.length - 1) pdf.addPage();
       }
     }
