@@ -166,7 +166,7 @@ addFieldBtn.addEventListener("click", () => {
 
   select.addEventListener("change", () => {
     const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
-      .filter(sel => sel.value === "fixed").length >= 1;
+      .filter(sel => sel.value === "fixed").length > 1;
 
     if (select.value === "fixed" && alreadyHasFixed) {
       alert("고정값 필드는 1개만 생성할 수 있습니다.");
