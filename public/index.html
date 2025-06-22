@@ -192,15 +192,14 @@ function generateBarcode() {
 
     if (!selectType || !valueInput) continue;
 
+    const val = valueInput.value.trim();
+
     if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "2" : "7";
+      modeCode = val === "모드 A" ? "2" : "7";
     } else if (selectType.value === "serial") {
-      // serial은 미리보기에는 미반영
       continue;
     } else {
-      if (valueInput.value.trim()) {
-        parts.push(valueInput.value.trim());
-      }
+      parts.push(val); // 값이 비어도 넣기
     }
   }
 
@@ -208,7 +207,8 @@ function generateBarcode() {
     parts.push(`${weekNumber}${modeCode}`);
   }
 
-  barcodePreview.textContent = parts.join("-");
+  // 빈 값은 제거하고 조인
+  barcodePreview.textContent = parts.filter(Boolean).join("-");
 }
 
 // 주차 계산 (일요일 시작 주차)
