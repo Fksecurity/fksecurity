@@ -115,6 +115,14 @@ for (const [key, html] of Object.entries(tabContents)) {
 
 // 필드 추가
 addFieldBtn.addEventListener("click", () => {
+    // 고정값이 이미 있는지 확인
+  const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
+    .some(sel => sel.value === "fixed");
+
+  if (alreadyHasFixed) {
+    alert("고정값 필드는 1개만 생성할 수 있습니다.");
+    return; // 더 이상 필드 추가하지 않음
+  }
   const wrapper = document.createElement("div");
   wrapper.className = "flex items-center gap-2";
 
