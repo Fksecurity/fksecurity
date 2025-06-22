@@ -198,7 +198,7 @@ function generateBarcode() {
       // serial은 미리보기에는 미반영
       continue;
     } else {
-      if (!valueInput.disabled && valueInput.value.trim()) {
+      if (valueInput.value.trim()) {
         parts.push(valueInput.value.trim());
       }
     }
