@@ -115,20 +115,13 @@ for (const [key, html] of Object.entries(tabContents)) {
 
 // 필드 추가
 addFieldBtn.addEventListener("click", () => {
-    // 고정값이 이미 있는지 확인
-  const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
-    .some(sel => sel.value === "fixed");
-
-  if (alreadyHasFixed) {
-    alert("고정값 필드는 1개만 생성할 수 있습니다.");
-    return; // 더 이상 필드 추가하지 않음
-  }
   const wrapper = document.createElement("div");
   wrapper.className = "flex items-center gap-2";
 
   const select = document.createElement("select");
   select.className = "border p-2 rounded";
   select.innerHTML = `
+    <option value="" selected disabled>항목 선택</option>
     <option value="fixed">고정값</option>
     <option value="shift">모드 선택</option>
   `;
@@ -158,20 +151,33 @@ addFieldBtn.addEventListener("click", () => {
       if (wrapper.contains(input)) input.remove();
       const dropdown = document.createElement("select");
       dropdown.className = "border p-2 rounded mode-select";
-      dropdown.innerHTML = `<option value="모드 A">모드 A</option><option value="모드 B">모드 B</option>`;
+      dropdown.innerHTML = `
+        <option value="모드 A">모드 A</option>
+        <option value="모드 B">모드 B</option>
+      `;
       wrapper.appendChild(dropdown);
       dropdown.addEventListener("change", generateBarcode);
     }
     generateBarcode();
   }
 
-  select.addEventListener("change", updateInputBySelect);
+  select.addEventListener("change", () => {
+    const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
+      .filter(sel => sel.value === "fixed").length >= 1;
+
+    if (select.value === "fixed" && alreadyHasFixed) {
+      alert("고정값 필드는 1개만 생성할 수 있습니다.");
+      select.value = "";
+      return;
+    }
+
+    updateInputBySelect();
+  });
 
   input.addEventListener("input", () => {
-    // ✅ 하이픈 2개 이상일 때 알람 + 초기화
     const hyphenCount = (input.value.match(/-/g) || []).length;
     if (hyphenCount > 1) {
-      alert("❌ 하이픈(-)은 1개까지만 허용됩니다. 모드를 선택하세요. ");
+      alert("❌ 하이픈(-)은 1개까지만 허용됩니다. 모드를 선택하세요.");
       input.value = "";
     }
     generateBarcode();
