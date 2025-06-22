@@ -122,8 +122,6 @@ addFieldBtn.addEventListener("click", () => {
   select.className = "border p-2 rounded";
   select.innerHTML = `
     <option value="fixed">고정값</option>
-    <option value="dynamic">변동값</option>
-    <option value="serial">임의번호</option>
     <option value="shift">모드 선택</option>
   `;
 
@@ -160,7 +158,16 @@ addFieldBtn.addEventListener("click", () => {
   }
 
   select.addEventListener("change", updateInputBySelect);
-  input.addEventListener("input", generateBarcode);
+
+  input.addEventListener("input", () => {
+    // ✅ 하이픈 2개 이상일 때 알람 + 초기화
+    const hyphenCount = (input.value.match(/-/g) || []).length;
+    if (hyphenCount > 1) {
+      alert("❌ 하이픈(-)은 1개까지만 허용됩니다. 모드를 선택하세요. ");
+      input.value = "";
+    }
+    generateBarcode();
+  });
 
   updateInputBySelect();
 });
@@ -178,7 +185,7 @@ function generateBarcode() {
     if (!selectType || !valueInput) continue;
 
     if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "0" : "5";
+      modeCode = valueInput.value === "모드 A" ? "2" : "7";
     } else if (selectType.value === "serial") {
       // serial은 미리보기에는 미반영
       continue;
