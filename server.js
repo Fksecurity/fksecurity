@@ -78,33 +78,42 @@ app.post("/next-barcode", async (req, res) => {
   const { prefix, count = 1 } = req.body;
   if (!prefix) return res.status(400).json({ error: "prefix is required" });
 
-  // prefix 끝 하이픈 자동 붙임 (프론트와 맞춤)
   const prefixWithHyphen = prefix.endsWith("-") ? prefix : prefix + "-";
 
-  // db 읽기
-  const db = await fs.readJson(DB_FILE).catch(() => ({}));
-  let current = db[prefixWithHyphen] || 0;
+  // 1차 읽기 (현재 상태 기준으로 계산)
+  const dbInitial = await fs.readJson(DB_FILE).catch(() => ({}));
+  let current = dbInitial[prefixWithHyphen] || 0;
 
-  // 번호 생성 & 999 초과 체크
+  // 바코드 생성
   if (current + count > 999) {
     return res.status(400).json({ error: "❌ 임의번호 999 초과, 새로운 주/야 코드를 설정하세요." });
   }
-
   const result = [];
   for (let i = 1; i <= count; i++) {
     result.push(`${prefixWithHyphen}${current + i}`);
   }
 
-  db[prefixWithHyphen] = current + count;
+  const newLast = current + count;
 
-  // db 저장
+  // 📌 2차 확인 - 저장 직전 최신 상태 다시 읽기
+  const db = await fs.readJson(DB_FILE).catch(() => ({}));
+  const existingLast = db[prefixWithHyphen] || 0;
+
+  if (newLast <= existingLast) {
+    console.warn(`⚠️ 중복 방지: 기존(${existingLast}) ≥ 새번호(${newLast}), 저장 중단`);
+    return res.status(409).json({ error: `❌ 중복 감지됨: ${existingLast} ≥ ${newLast}` });
+  }
+
+  // 최종 저장
+  db[prefixWithHyphen] = newLast;
   await fs.writeJson(DB_FILE, db, { spaces: 2 });
 
   // GitHub 업로드
-  await uploadFileToGitHub(DB_FILE, BARCODES_GITHUB_FILE, `📦 ${prefixWithHyphen} → ${db[prefixWithHyphen]} (API Upload at ${new Date().toISOString()})`);
+  await uploadFileToGitHub(DB_FILE, BARCODES_GITHUB_FILE, `📦 ${prefixWithHyphen} → ${newLast} (API Upload at ${new Date().toISOString()})`);
 
   res.json({ barcodes: result });
 });
+
 
 // --- 설정 저장 API ---
 app.post("/save-settings", async (req, res) => {

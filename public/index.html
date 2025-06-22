@@ -227,11 +227,12 @@ async function getFinalBarcodesFromServer(count) {
     if (selectType.value === "shift") {
       modeCode = valueInput.value === "모드 A" ? "0" : "5";
     } else if (selectType.value === "serial") {
-      continue; // serial은 서버가 자동 처리
+      continue;
     } else {
       combinedParts.push(valueInput.value.trim());
     }
   }
+
   if (modeCode !== null) {
     const weekNumber = getCompanyWeekNumber(new Date());
     combinedParts.push(`${weekNumber}${modeCode}`);
@@ -244,29 +245,22 @@ async function getFinalBarcodesFromServer(count) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ prefix: finalPrefix, count })
   });
-  if (!response.ok) throw new Error("❌ 서버 오류");
+
+  // ✅ 중복 에러 발생 시 처리
+  if (response.status === 409) {
+    const err = await response.json();
+    alert("❗ 다른 사용자가 먼저 작업했습니다.\n잠시 후 다시 시도하거나 페이지를 새로고침해주세요.");
+    throw new Error("중복된 바코드 요청");
+  }
+
+  if (!response.ok) {
+    throw new Error("❌ 서버 오류");
+  }
+
   const data = await response.json();
   return data.barcodes;
 }
 
-// bwip-js 바코드 캔버스 생성 (Promise 반환)
-function generateBarcodeCanvas(text, options = {}) {
-  return new Promise((resolve, reject) => {
-    const canvas = document.createElement("canvas");
-    bwipjs.toCanvas(canvas, {
-      bcid: 'code128',
-      text,
-      scale: options.scale || 3,
-      height: options.height || 50,
-      includetext: options.includetext ?? true,
-      textxalign: 'center',
-      textsize: options.textsize || 14,
-    }, (err) => {
-      if (err) reject(err);
-      else resolve(canvas);
-    });
-  });
-}
 
 // 바코드 출력 처리
 async function handlePrint(type) {
@@ -463,6 +457,35 @@ async function loadSettingsFromServer() {
 document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
 document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
 document.getElementById("printLabel").addEventListener("click", () => handlePrint("label"));
+
+(function detectDevToolsAbuse() {
+  let triggered = false;
+
+  const warnAndRedirect = () => {
+    if (triggered) return;
+    triggered = true;
+    alert("⚠️ 해당 페이지는 회사의 자산이 아닌 개인 자산으로 로직 탈취는 민,형사상 고발 대상이 됩니다.\n\nAI 돌리고 싶으면 귀하가 직접 로직 짜시기 바랍니다.");
+    location.href = "about:blank";
+  };
+
+  // 창 크기 급변 감지
+  setInterval(() => {
+    const w = window.outerWidth - window.innerWidth;
+    const h = window.outerHeight - window.innerHeight;
+    if (w > 160 || h > 160) {
+      warnAndRedirect();
+    }
+  }, 1000);
+
+  // 콘솔 열기 감지
+  const bait = new Image();
+  Object.defineProperty(bait, 'id', {
+    get() {
+      warnAndRedirect();
+    }
+  });
+  console.log('%c', bait);
+})();
 
 </script>
 </body>
