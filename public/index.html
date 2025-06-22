@@ -114,6 +114,7 @@ for (const [key, html] of Object.entries(tabContents)) {
 }
 
 // 필드 추가
+// ✅ 필드 추가 버튼 클릭 시 동작
 addFieldBtn.addEventListener("click", () => {
   const wrapper = document.createElement("div");
   wrapper.className = "flex items-center gap-2";
@@ -132,7 +133,6 @@ addFieldBtn.addEventListener("click", () => {
   input.placeholder = "값 입력 또는 자동";
 
   wrapper.appendChild(select);
-  wrapper.appendChild(input);
   fieldsContainer.appendChild(wrapper);
 
   function updateInputBySelect() {
@@ -165,8 +165,8 @@ addFieldBtn.addEventListener("click", () => {
   }
 
   select.addEventListener("change", () => {
-const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
-  .filter(sel => sel.value === "fixed").length >= 1;
+    const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
+      .filter(sel => sel.value === "fixed").length >= 1;
 
     if (select.value === "fixed" && alreadyHasFixed) {
       alert("고정값 필드는 1개만 생성할 수 있습니다.");
@@ -177,18 +177,8 @@ const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
 
     updateInputBySelect();
   });
-
-  input.addEventListener("input", () => {
-    const hyphenCount = (input.value.match(/-/g) || []).length;
-    if (hyphenCount > 1) {
-      alert("❌ 하이픈(-)은 1개까지만 허용됩니다. 모드를 선택하세요.");
-      input.value = "";
-    }
-    generateBarcode();
-  });
-
-  updateInputBySelect();
 });
+
 
 // 바코드 조합 미리보기 생성
 function generateBarcode() {
