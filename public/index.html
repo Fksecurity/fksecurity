@@ -225,7 +225,7 @@ async function getFinalBarcodesFromServer(count) {
     if (!selectType || !valueInput) continue;
 
     if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "0" : "5";
+      modeCode = valueInput.value === "모드 A" ? "2" : "7";
     } else if (selectType.value === "serial") {
       continue;
     } else {
