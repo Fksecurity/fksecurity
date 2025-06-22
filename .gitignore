@@ -1,1 +1,3 @@
 ﻿node_modules/
+echo "barcodes.json" >> .gitignore
+echo "load-settings.json" >> .gitignore
