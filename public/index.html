@@ -139,14 +139,16 @@ addFieldBtn.addEventListener("click", () => {
     const existingDropdown = wrapper.querySelector("select.mode-select");
     if (existingDropdown) existingDropdown.remove();
 
-    if (select.value === "fixed" || select.value === "dynamic") {
+    // 항목 선택(default)일 경우 아무것도 안보이게
+    if (select.value === "") {
+      if (wrapper.contains(input)) input.remove();
+      return;
+    }
+
+    if (select.value === "fixed") {
       if (!wrapper.contains(input)) wrapper.appendChild(input);
       input.disabled = false;
-      input.value = select.value === "fixed" ? "" : "(자동 검색)";
-    } else if (select.value === "serial") {
-      if (!wrapper.contains(input)) wrapper.appendChild(input);
-      input.disabled = true;
-      input.value = "(자동 부여)";
+      input.value = "";
     } else if (select.value === "shift") {
       if (wrapper.contains(input)) input.remove();
       const dropdown = document.createElement("select");
@@ -158,6 +160,7 @@ addFieldBtn.addEventListener("click", () => {
       wrapper.appendChild(dropdown);
       dropdown.addEventListener("change", generateBarcode);
     }
+
     generateBarcode();
   }
 
@@ -168,6 +171,7 @@ addFieldBtn.addEventListener("click", () => {
     if (select.value === "fixed" && alreadyHasFixed) {
       alert("고정값 필드는 1개만 생성할 수 있습니다.");
       select.value = "";
+      updateInputBySelect(); // 입력 제거
       return;
     }
 
