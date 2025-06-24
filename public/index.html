@@ -133,20 +133,22 @@ addFieldBtn.addEventListener("click", () => {
   input.placeholder = "값 입력 또는 자동";
 
   // ✅ 하이픈 2개 이상 감지 로직
-  input.addEventListener("input", () => {
-    const hyphenCount = (input.value.match(/-/g) || []).length;
-    if (hyphenCount > 1) {
-      Toastify({
-        text: "❌ 하이픈(-)은 한 개까지만 입력할 수 있습니다.",
-        duration: 3000,
-        style: { background: "red" },
-      }).showToast();
-      // 두 번째 이후 하이픈 제거
-      input.value = input.value.replace(/-(?=[^-]*-)/g, "");
-    }
+input.addEventListener("input", () => {
+  const hyphenCount = (input.value.match(/-/g) || []).length;
+  if (hyphenCount > 1) {
+    Toastify({
+      text: "❌ 하이픈(-)은 한 개까지만 입력할 수 있습니다.",
+      duration: 3000,
+      style: { background: "red" },
+    }).showToast();
 
-    generateBarcode();
-  });
+    // 첫 번째 하이픈까지만 남기고 나머지 제거
+    const parts = input.value.split("-");
+    input.value = parts.slice(0, 2).join("-");
+  }
+
+  generateBarcode();
+});
 
   wrapper.appendChild(select);
   fieldsContainer.appendChild(wrapper);
