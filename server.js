@@ -29,7 +29,7 @@ async function uploadFileToGitHub(filepath, repoPath, commitMsg) {
     const contentRaw = await fs.readFile(filepath, "utf-8");
     const contentEncoded = Buffer.from(contentRaw).toString("base64");
 
-    // 기존 sha 조회 (있으면 업데이트, 없으면 신규)
+    // 기존 sha 조회
     let sha;
     const shaRes = await fetch(`https://api.github.com/repos/${GITHUB_REPO}/contents/${repoPath}`, {
       headers: {
@@ -72,48 +72,72 @@ async function uploadFileToGitHub(filepath, repoPath, commitMsg) {
   }
 }
 
+// --- 바코드 생성 요청 큐 ---
+const requestQueue = [];
+
+async function processQueue() {
+  if (requestQueue.length === 0) return;
+
+  const { prefix, count, res, timeout } = requestQueue[0];
+
+  try {
+    const prefixWithHyphen = prefix.endsWith("-") ? prefix : prefix + "-";
+    const db = await fs.readJson(DB_FILE).catch(() => ({}));
+    const current = db[prefixWithHyphen] || 0;
+
+    if (current + count > 999) {
+      res.status(400).json({ error: "❌ 임의번호 999 초과, 새로운 주/야 코드를 설정하세요." });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
+      return;
+    }
+
+    const barcodes = Array.from({ length: count }, (_, i) => `${prefixWithHyphen}${current + i + 1}`);
+    const newLast = current + count;
+    db[prefixWithHyphen] = newLast;
+
+    await fs.writeJson(DB_FILE, db, { spaces: 2 });
+
+    const uploadSuccess = await uploadFileToGitHub(
+      DB_FILE,
+      BARCODES_GITHUB_FILE,
+      `📦 ${prefixWithHyphen} → ${newLast} (API Upload at ${new Date().toISOString()})`
+    );
+
+    if (!uploadSuccess) {
+      res.status(500).json({ error: "GitHub 업로드 실패" });
+    } else {
+      res.json({ barcodes });
+    }
+  } catch (err) {
+    console.error("❌ 큐 처리 중 에러:", err.message);
+    res.status(500).json({ error: "서버 처리 오류" });
+  } finally {
+    clearTimeout(requestQueue[0].timeout);
+    requestQueue.shift();
+    processQueue(); // 다음 요청
+  }
+}
+
 // --- 바코드 생성 API ---
-app.post("/next-barcode", async (req, res) => {
-  console.log("📥 [API] POST /next-barcode");
+app.post("/next-barcode", (req, res) => {
   const { prefix, count = 1 } = req.body;
-  if (!prefix) return res.status(400).json({ error: "prefix is required" });
-
-  const prefixWithHyphen = prefix.endsWith("-") ? prefix : prefix + "-";
-
-  // 1차 읽기 (현재 상태 기준으로 계산)
-  const dbInitial = await fs.readJson(DB_FILE).catch(() => ({}));
-  let current = dbInitial[prefixWithHyphen] || 0;
-
-  // 바코드 생성
-  if (current + count > 999) {
-    return res.status(400).json({ error: "❌ 임의번호 999 초과, 새로운 주/야 코드를 설정하세요." });
-  }
-  const result = [];
-  for (let i = 1; i <= count; i++) {
-    result.push(`${prefixWithHyphen}${current + i}`);
+  if (!prefix || typeof count !== "number") {
+    return res.status(400).json({ error: "Invalid prefix or count" });
   }
 
-  const newLast = current + count;
+  const timeout = setTimeout(() => {
+    console.warn("⏱️ 응답 타임아웃 발생 (큐 제거)");
+    res.status(504).json({ error: "응답 지연으로 실패" });
+    const idx = requestQueue.findIndex(q => q.res === res);
+    if (idx !== -1) requestQueue.splice(idx, 1);
+    processQueue();
+  }, 10000);
 
-  // 📌 2차 확인 - 저장 직전 최신 상태 다시 읽기
-  const db = await fs.readJson(DB_FILE).catch(() => ({}));
-  const existingLast = db[prefixWithHyphen] || 0;
-
-  if (newLast <= existingLast) {
-    console.warn(`⚠️ 중복 방지: 기존(${existingLast}) ≥ 새번호(${newLast}), 저장 중단`);
-    return res.status(409).json({ error: `❌ 중복 감지됨: ${existingLast} ≥ ${newLast}` });
-  }
-
-  // 최종 저장
-  db[prefixWithHyphen] = newLast;
-  await fs.writeJson(DB_FILE, db, { spaces: 2 });
-
-  // GitHub 업로드
-  await uploadFileToGitHub(DB_FILE, BARCODES_GITHUB_FILE, `📦 ${prefixWithHyphen} → ${newLast} (API Upload at ${new Date().toISOString()})`);
-
-  res.json({ barcodes: result });
+  requestQueue.push({ prefix, count, res, timeout });
+  if (requestQueue.length === 1) processQueue();
 });
-
 
 // --- 설정 저장 API ---
 app.post("/save-settings", async (req, res) => {
