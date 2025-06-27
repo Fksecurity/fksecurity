@@ -345,11 +345,11 @@ async function handlePrint(type) {
         await bwipjs.toCanvas(canvas, {
           bcid: "code128",
           text: code,
-          scale: 3,
+          scale: 3.5,
           height: 10,
           includetext: true,
           textxalign: "center",
-          textsize: 8
+          textsize: 9
         });
         const img = canvas.toDataURL("image/png");
         pdf.setDrawColor(0);
