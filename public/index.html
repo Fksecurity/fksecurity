@@ -134,6 +134,8 @@ addFieldBtn.addEventListener("click", () => {
 
   // ✅ 하이픈 2개 이상 감지 로직
   input.addEventListener("input", () => {
+      // 👉 대문자 자동 변환
+  input.value = input.value.toUpperCase();
     const hyphenCount = (input.value.match(/-/g) || []).length;
     if (hyphenCount > 1) {
       alert("❌ 하이픈(-)은 1개까지만 허용됩니다.");
