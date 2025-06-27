@@ -53,8 +53,8 @@
   </div>
 <!-- 안내문 하단에 추가 -->
 <div class="mt-12 text-center text-xs text-gray-500">
-  ⚠️ <strong class="text-red-500">죄송합니다.</strong> 업데이트 중 중요한 파일이 날아가 🙏  
-  <span class="text-gray-700">금주 모드A/B는 <strong class="text-blue-600">2</strong>와 <strong class="text-blue-600">7</strong>부터 시작합니다.</span>  
+  ⚠️ <strong class="text-red-500">알립니다</strong> DB 교체 작업으로 인해  
+  <span class="text-gray-700">06/27~28 모드A/B는 <strong class="text-blue-600">4</strong>와 <strong class="text-blue-600">9</strong>부터 시작합니다.</span>  
   <br />
   <span class="italic text-[12px] text-gray-400">* 해당 페이지의 코드 및 로직의 소유권은 창작자에게 있으며 탈취 시도 시 법적 조치 대상이 될 수 있습니다 🤖</span>
 </div>
@@ -205,7 +205,7 @@ function generateBarcode() {
     const val = valueInput.value.trim();
 
     if (selectType.value === "shift") {
-      modeCode = val === "모드 A" ? "2" : "7";
+      modeCode = val === "모드 A" ? "4" : "9";
     } else if (selectType.value === "serial") {
       continue;
     } else {
@@ -258,7 +258,7 @@ async function getFinalBarcodesFromServer(count) {
     if (!selectType || !valueInput) continue;
 
     if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "2" : "7";
+      modeCode = valueInput.value === "모드 A" ? "4" : "9";
     } else if (selectType.value === "serial") {
       continue;
     } else {

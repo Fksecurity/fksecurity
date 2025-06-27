@@ -4,3 +4,4 @@ echo "load-settings.json" >> .gitignore
 barcodes.json
 Supabase_fksecurity.env
 devserver.js
+.env
