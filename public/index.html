@@ -340,8 +340,8 @@ async function handlePrint(type) {
         if (i > 0) pdf.addPage([50, 40]);
 
         const canvas = document.createElement("canvas");
-        canvas.width = 400;
-        canvas.height = 200;
+        canvas.width = 600;
+        canvas.height = 240;
         await bwipjs.toCanvas(canvas, {
           bcid: "code128",
           text: code,
@@ -355,7 +355,7 @@ async function handlePrint(type) {
         pdf.setDrawColor(0);
         pdf.setLineWidth(0.5);
         pdf.rect(0.5, 0.5, 49, 39);
-        pdf.addImage(img, "PNG", 6, 6, 38, 28);
+        pdf.addImage(img, "PNG", 4, 4, 42, 32);
       }
     } else if (type === "a4") {
       pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
