@@ -52,11 +52,8 @@
   </div>
   </div>
 <!-- 안내문 하단에 추가 -->
-<div class="mt-12 text-center text-xs text-gray-500">
-  ⚠️ <strong class="text-red-500">알립니다</strong> DB 교체 작업으로 인해  
-  <span class="text-gray-700">06/27~28 모드A/B는 <strong class="text-blue-600">4</strong>와 <strong class="text-blue-600">9</strong>부터 시작합니다.</span>  
-  <br />
-  <span class="italic text-[12px] text-gray-400">* 해당 페이지의 코드 및 로직의 소유권은 창작자에게 있으며 탈취 시도 시 법적 조치 대상이 될 수 있습니다 🤖</span>
+<div class="mt-12 text-center text-[11px] text-red-400 italic">
+  ※ 본 페이지의 코드 및 로직은 창작자에게 귀속되며, 무단 복제 및 탈취 시 법적 책임을 질 수 있습니다.
 </div>
 
   <!-- 히든 설정창 탭 버튼 -->
@@ -207,7 +204,7 @@ function generateBarcode() {
     const val = valueInput.value.trim();
 
     if (selectType.value === "shift") {
-      modeCode = val === "모드 A" ? "4" : "9";
+      modeCode = val === "모드 A" ? "0" : "5";
     } else if (selectType.value === "serial") {
       continue;
     } else {
@@ -260,7 +257,7 @@ async function getFinalBarcodesFromServer(count) {
     if (!selectType || !valueInput) continue;
 
     if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "4" : "9";
+      modeCode = valueInput.value === "모드 A" ? "0" : "5";
     } else if (selectType.value === "serial") {
       continue;
     } else {
