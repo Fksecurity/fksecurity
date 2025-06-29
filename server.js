@@ -160,43 +160,46 @@ app.post("/dev-next-barcode", async (req, res) => {
         return res.status(409).json({ error: "주야코드 초과" });
       }
 
-      // nextDN 존재 여부 확인
-      const { data: nextRow } = await supabase
-        .from("barcode_sequence_v2")
-        .select("*")
-        .eq("id", prefix)
-        .eq("week", week)
-        .eq("mode", modeLabel)
-        .eq("daynightnum", nextDN)
-        .single();
+// nextDN 존재 여부 확인
+const { data: nextRow } = await supabase
+  .from("barcode_sequence_v2")
+  .select("*")
+  .eq("id", prefix)
+  .eq("week", week)
+  .eq("mode", modeLabel)
+  .eq("daynightnum", nextDN)
+  .maybeSingle(); // <= .single() 대신 maybeSingle() 권장
 
-      const base = nextRow?.last_number ?? 0;
+// ✨ serial은 항상 1부터 시작
+const newStartSerial = 1;
+const newLastNumber = count;
 
-      // upsert
-      const { error: upsertErr } = await supabase
-        .from("barcode_sequence_v2")
-        .upsert({
-          id: prefix,
-          week,
-          mode: modeLabel,
-          daynightnum: nextDN,
-          last_number: base + count,
-          updated_at: new Date().toISOString()
-        }, {
-          onConflict: "id,week,mode,daynightnum"
-        });
+// upsert
+const { error: upsertErr } = await supabase
+  .from("barcode_sequence_v2")
+  .upsert({
+    id: prefix,
+    week,
+    mode: modeLabel,
+    daynightnum: nextDN,
+    last_number: newLastNumber,
+    updated_at: new Date().toISOString()
+  }, {
+    onConflict: "id,week,mode,daynightnum"
+  });
 
-      if (upsertErr) {
-        console.error("💥 upsert 실패:", upsertErr);
-        return res.status(500).json({ error: "upsert 실패" });
-      }
+if (upsertErr) {
+  console.error("💥 upsert 실패:", upsertErr);
+  return res.status(500).json({ error: "upsert 실패" });
+}
 
-      const barcodes = Array.from({ length: count }, (_, i) => {
-        return `${prefix}-${week}${nextDN}-${base + i + 1}`;
-      });
+// ✅ 바코드 생성
+const barcodes = Array.from({ length: count }, (_, i) => {
+  return `${prefix}-${week}${nextDN}-${newStartSerial + i}`;
+});
 
-      console.log("✅ 증가된 주야코드로 바코드 생성:", barcodes);
-      return res.json({ barcodes });
+console.log("✅ 증가된 주야코드로 바코드 생성:", barcodes);
+return res.json({ barcodes });
     }
 
   } catch (e) {
