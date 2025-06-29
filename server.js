@@ -145,7 +145,7 @@ app.post("/dev-next-barcode", async (req, res) => {
       }
 
       const barcodes = Array.from({ length: count }, (_, i) => {
-        return `${prefix}-${last_number + i + 1}`;
+        return `${prefix}-${week}${daynightnum}-${last_number + i + 1}`;
       });
 
       console.log("✅ 이어서 바코드 생성:", barcodes);
@@ -195,7 +195,7 @@ if (upsertErr) {
 
 // ✅ 바코드 생성
 const barcodes = Array.from({ length: count }, (_, i) => {
-  return `${prefix}-${newStartSerial + i}`;
+  return `${prefix}-${week}${nextDN}-${newStartSerial + i}`;
 });
 
 console.log("✅ 증가된 주야코드로 바코드 생성:", barcodes);

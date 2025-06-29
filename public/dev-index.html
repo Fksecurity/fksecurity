@@ -264,18 +264,15 @@ async function getFinalBarcodesFromServer(count) {
   }
 
   const weekNumber = getCompanyWeekNumber(new Date());
-  if (modeCode !== null) {
-    combinedParts.push(`${weekNumber}${modeCode}`);
-  }
 
+  // ✅ 주차 + 모드 코드 조합은 서버에서 하도록 프론트에서 제외
   const finalPrefix = combinedParts.join("-");
 
-  // ✅ 여기 콘솔 추가
   console.log("[DEBUG] 요청 바디:", {
     prefix: finalPrefix,
     count,
     mode: modeCode === "0" ? "A" : "B",
-    idParts: finalPrefix.split("-") 
+    idParts: finalPrefix.split("-")
   });
 
   const response = await fetch(`https://fksecurity.onrender.com/dev-next-barcode?_=${Date.now()}`, {
@@ -286,7 +283,7 @@ async function getFinalBarcodesFromServer(count) {
       count,
       mode: modeCode === "0" ? "A" : "B",
       idParts: finalPrefix.split("-"),
-      week: weekNumber // weeknumber 추가
+      week: weekNumber
     })
   });
 
@@ -303,6 +300,7 @@ async function getFinalBarcodesFromServer(count) {
   const data = await response.json();
   return data.barcodes;
 }
+
 
 
 
