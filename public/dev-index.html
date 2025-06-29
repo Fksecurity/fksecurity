@@ -191,9 +191,9 @@ addFieldBtn.addEventListener("click", () => {
 
 // 바코드 조합 미리보기 생성
 function generateBarcode() {
-  const parts = [];
-  let modeCode = null;
-  const weekNumber = getCompanyWeekNumber(new Date());
+  const idParts = [];
+  let modeLabel = null;
+  const week = getCompanyWeekNumber(new Date());
 
   for (const wrapper of fieldsContainer.children) {
     const selectType = wrapper.querySelector("select:first-child");
@@ -204,21 +204,18 @@ function generateBarcode() {
     const val = valueInput.value.trim();
 
     if (selectType.value === "shift") {
-      modeCode = val === "모드 A" ? "0" : "5";
-    } else if (selectType.value === "serial") {
-      continue;
+      modeLabel = val === "모드 A" ? "A" : "B";
     } else {
-      parts.push(val); // 값이 비어도 넣기
+      idParts.push(val); // 고정값들
     }
   }
 
-  if (modeCode !== null) {
-    parts.push(`${weekNumber}${modeCode}`);
-  }
+  if (!modeLabel) return;
 
-  // 빈 값은 제거하고 조인
-  barcodePreview.textContent = parts.filter(Boolean).join("-");
+  const preview = `${idParts.join("-")}-${week}${modeLabel}`;
+  barcodePreview.textContent = preview;
 }
+
 
 // 주차 계산 (일요일 시작 주차)
 function getCompanyWeekNumber(date) {
@@ -249,40 +246,42 @@ updateDateAndWeek();
 
 // 서버에서 바코드 번호 받아오기
 async function getFinalBarcodesFromServer(count) {
-  const combinedParts = [];
-  let modeCode = null;
+  const idParts = [];
+  let modeLabel = null;
+
   for (const wrapper of fieldsContainer.children) {
     const selectType = wrapper.querySelector("select:first-child");
     const valueInput = wrapper.querySelector("input, select.mode-select");
+
     if (!selectType || !valueInput) continue;
 
+    const val = valueInput.value.trim();
+
     if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "0" : "5";
-    } else if (selectType.value === "serial") {
-      continue;
+      modeLabel = val === "모드 A" ? "A" : "B";
     } else {
-      combinedParts.push(valueInput.value.trim());
+      idParts.push(val);
     }
   }
 
-  if (modeCode !== null) {
-    const weekNumber = getCompanyWeekNumber(new Date());
-    combinedParts.push(`${weekNumber}${modeCode}`);
-  }
+  const id = idParts.join("-");
+  const week = getCompanyWeekNumber(new Date());
 
-  const finalPrefix = combinedParts.join("-");
+  const response = await fetch("https://fksecurity.onrender.com/dev-next-barcode", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      id,
+      week,
+      mode: modeLabel,
+      count
+    })
+  });
 
-const response = await fetch(`https://fksecurity.onrender.com/dev-next-barcode?_=${Date.now()}`, {
-  method: "POST",
-  headers: { "Content-Type": "application/json" },
-  body: JSON.stringify({ prefix: finalPrefix, count })
-});
-
-  // ✅ 중복 에러 발생 시 처리
   if (response.status === 409) {
     const err = await response.json();
-    alert("❗ 다른 사용자가 먼저 작업했습니다.\n잠시 후 다시 시도하거나 페이지를 새로고침해주세요.");
-    throw new Error("중복된 바코드 요청");
+    alert("❗ 다른 사용자가 먼저 작업했습니다.\n잠시 후 다시 시도해주세요.");
+    throw new Error("중복 바코드 요청");
   }
 
   if (!response.ok) {
@@ -292,6 +291,7 @@ const response = await fetch(`https://fksecurity.onrender.com/dev-next-barcode?_
   const data = await response.json();
   return data.barcodes;
 }
+
 
 
 // 바코드 출력 처리
