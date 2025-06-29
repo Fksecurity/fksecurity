@@ -6,21 +6,20 @@ import path from "path";
 
 const app = express();
 const PORT = process.env.PORT || 3000;
+
+// Supabase 연결
 const supabase = createClient(process.env.SUPABASE_URL, process.env.SUPABASE_KEY);
-const SETTINGS_FILE = path.join(process.cwd(), "load-settings.json");
 
 app.use(cors());
 app.use(express.json());
-app.use(express.static("public")); // index.html 위치
+app.use(express.static("public"));
 
-// ✅ 바코드 요청 큐
 const requestQueue = [];
 
 async function processQueue() {
   if (requestQueue.length === 0) return;
 
-  const { prefix, count, res, modeLabel, week, timeout, idParts } = requestQueue[0];
-  const prefixKey = prefix.endsWith("-") ? prefix : prefix + "-";
+  const { prefix, count, res, modeLabel, week, timeout } = requestQueue[0];
 
   try {
     console.log("📥 [REQ] 바코드 요청 받음 (큐)");
@@ -28,7 +27,6 @@ async function processQueue() {
     console.log(" └─ Mode:", modeLabel);
     console.log(" └─ Count:", count);
     console.log(" └─ Week:", week);
-    console.log(" └─ ID Parts:", idParts);
 
     const { data, error } = await supabase
       .from("barcode_sequence_v2")
@@ -40,7 +38,14 @@ async function processQueue() {
       .limit(1)
       .single();
 
-    if (error && error.code !== "PGRST116") throw error;
+    if (error && error.code !== "PGRST116") {
+      console.error("🧨 Supabase SELECT 오류:", error);
+      res.status(500).json({ error: "DB 조회 실패" });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
+      return;
+    }
 
     if (!data) {
       const dayNightNum = modeLabel === "A" ? 0 : 5;
@@ -55,14 +60,24 @@ async function processQueue() {
           updated_at: new Date().toISOString()
         }]);
 
-      if (insert.error) throw insert.error;
+      if (insert.error) {
+        console.error("💥 신규 row 생성 실패:", insert.error);
+        res.status(500).json({ error: "row 생성 실패" });
+        requestQueue.shift();
+        clearTimeout(timeout);
+        processQueue();
+        return;
+      }
 
-      const barcodes = Array.from({ length: count }, (_, i) =>
-        `${prefix}-${week}${dayNightNum}-${i + 1}`
-      );
+      const barcodes = Array.from({ length: count }, (_, i) => {
+        return `${prefix}-${week}${dayNightNum}-${i + 1}`;
+      });
 
       console.log("✅ 신규 바코드 생성:", barcodes);
       res.json({ barcodes });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
       return;
     }
 
@@ -81,46 +96,77 @@ async function processQueue() {
         .eq("mode", modeLabel)
         .eq("daynightnum", daynightnum);
 
-      if (update.error) throw update.error;
+      if (update.error) {
+        console.error("💥 UPDATE 실패:", update.error);
+        res.status(500).json({ error: "바코드 갱신 실패" });
+        requestQueue.shift();
+        clearTimeout(timeout);
+        processQueue();
+        return;
+      }
 
-      const barcodes = Array.from({ length: count }, (_, i) =>
-        `${prefix}-${week}${daynightnum}-${last_number + i + 1}`
-      );
+      const barcodes = Array.from({ length: count }, (_, i) => {
+        return `${prefix}-${week}${daynightnum}-${last_number + i + 1}`;
+      });
 
       console.log("✅ 이어서 바코드 생성:", barcodes);
       res.json({ barcodes });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
       return;
     }
 
+    const available = 999 - last_number;
     const nextDN = daynightnum + 1;
     if (nextDN > dnMax) {
       console.error("🛑 주야코드 초과! 더 이상 생성 불가");
       res.status(409).json({ error: "주야코드 초과" });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
       return;
     }
 
-    await supabase
+    const currentBarcodes = Array.from({ length: available }, (_, i) => {
+      return `${prefix}-${week}${daynightnum}-${last_number + i + 1}`;
+    });
+
+    const newStartSerial = 1;
+    const newLastNumber = count - available;
+
+    const { error: upsertErr } = await supabase
       .from("barcode_sequence_v2")
       .upsert({
         id: prefix,
         week,
         mode: modeLabel,
         daynightnum: nextDN,
-        last_number: count,
+        last_number: newLastNumber,
         updated_at: new Date().toISOString()
       }, {
         onConflict: "id,week,mode,daynightnum"
       });
 
-    const barcodes = Array.from({ length: count }, (_, i) =>
-      `${prefix}-${week}${nextDN}-${i + 1}`
-    );
+    if (upsertErr) {
+      console.error("💥 upsert 실패:", upsertErr);
+      res.status(500).json({ error: "upsert 실패" });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
+      return;
+    }
 
-    console.log("✅ 증가된 주야코드로 바코드 생성:", barcodes);
+    const nextBarcodes = Array.from({ length: newLastNumber }, (_, i) => {
+      return `${prefix}-${week}${nextDN}-${newStartSerial + i}`;
+    });
+
+    const barcodes = [...currentBarcodes, ...nextBarcodes];
+    console.log("✅ 나눠서 바코드 생성:", barcodes);
     res.json({ barcodes });
 
   } catch (e) {
-    console.error("💣 큐 처리 실패:", e);
+    console.error("💣 전체 실패:", e);
     res.status(500).json({ error: "서버 내부 오류" });
   } finally {
     clearTimeout(requestQueue[0].timeout);
@@ -129,20 +175,22 @@ async function processQueue() {
   }
 }
 
-// ✅ 최종 엔드포인트
 app.post("/dev-next-barcode", async (req, res) => {
-  const { prefix, mode, count, week, idParts } = req.body;
+  const { prefix, mode, count, week } = req.body;
   const timeout = setTimeout(() => {
     res.status(408).json({ error: "⏱️ 요청 타임아웃" });
     requestQueue.shift();
     processQueue();
   }, 10000);
 
-  requestQueue.push({ prefix, count, res, modeLabel: mode, week, timeout, idParts });
-  if (requestQueue.length === 1) processQueue();
+  requestQueue.push({ prefix, count, res, modeLabel: mode, week, timeout });
+  if (requestQueue.length === 1) {
+    processQueue();
+  }
 });
 
-// ✅ 설정 저장
+const SETTINGS_FILE = path.join(process.cwd(), "load-settings.json");
+
 app.post("/save-settings", async (req, res) => {
   try {
     const data = req.body;
@@ -150,6 +198,7 @@ app.post("/save-settings", async (req, res) => {
 
     await fs.writeJson(SETTINGS_FILE, data, { spaces: 2 });
     console.log("💾 설정 저장 완료");
+
     res.json({ status: "ok" });
   } catch (err) {
     console.error("❌ 설정 저장 실패:", err);
@@ -157,7 +206,6 @@ app.post("/save-settings", async (req, res) => {
   }
 });
 
-// ✅ 설정 불러오기
 app.get("/load-settings", async (req, res) => {
   try {
     const data = await fs.readJson(SETTINGS_FILE);
@@ -168,7 +216,6 @@ app.get("/load-settings", async (req, res) => {
   }
 });
 
-// ✅ 서버 실행
 app.listen(PORT, () => {
   console.log(`✅ Supabase 바코드 서버 실행 중 - 포트 ${PORT}`);
 });
