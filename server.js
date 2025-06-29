@@ -195,7 +195,7 @@ if (upsertErr) {
 
 // ✅ 바코드 생성
 const barcodes = Array.from({ length: count }, (_, i) => {
-  return `${prefix}-${week}${nextDN}-${newStartSerial + i}`;
+  return `${prefix}-${newStartSerial + i}`;
 });
 
 console.log("✅ 증가된 주야코드로 바코드 생성:", barcodes);
