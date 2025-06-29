@@ -169,8 +169,8 @@ async function processQueue() {
     console.error("💣 전체 실패:", e);
     res.status(500).json({ error: "서버 내부 오류" });
   } finally {
-    clearTimeout(requestQueue[0].timeout);
-    requestQueue.shift();
+    const current = requestQueue.shift();
+    if (current?.timeout) clearTimeout(current.timeout);
     processQueue();
   }
 }
