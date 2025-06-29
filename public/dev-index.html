@@ -246,7 +246,7 @@ updateDateAndWeek();
 
 // 서버에서 바코드 번호 받아오기
 async function getFinalBarcodesFromServer(count) {
-  let modeCode = null;
+  let modeLabel = null;
   const input = document.querySelector("input");
 
   for (const wrapper of fieldsContainer.children) {
@@ -255,7 +255,7 @@ async function getFinalBarcodesFromServer(count) {
     if (!selectType || !valueInput) continue;
 
     if (selectType.value === "shift") {
-      modeCode = valueInput.value === "모드 A" ? "A" : "B";
+      modeLabel = valueInput.value === "모드 A" ? "A" : "B";
     }
   }
 
@@ -265,7 +265,7 @@ async function getFinalBarcodesFromServer(count) {
   console.log("[DEBUG] 요청 바디:", {
     prefix: finalPrefix,
     count,
-    mode: modeCode === "모드 A" ? "A" : "B",
+    mode: modeLabel === "모드 A" ? "A" : "B",
     idParts: finalPrefix.split("-")
   });
 
@@ -275,7 +275,7 @@ async function getFinalBarcodesFromServer(count) {
     body: JSON.stringify({
       prefix: finalPrefix,
       count,
-      mode: modeCode === "0" ? "A" : "B",
+  mode: modeLabel === "모드 A" ? "A" : "B",
       idParts: finalPrefix.split("-"),
       week: weekNumber
     })
