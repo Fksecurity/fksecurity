@@ -275,7 +275,7 @@ async function getFinalBarcodesFromServer(count) {
     prefix: finalPrefix,
     count,
     mode: modeCode === "0" ? "A" : "B",
-    idParts: finalPrefix.split("-") // 대충 임시 조합
+    idParts: finalPrefix.split("-") 
   });
 
   const response = await fetch(`https://fksecurity.onrender.com/dev-next-barcode?_=${Date.now()}`, {
@@ -285,7 +285,8 @@ async function getFinalBarcodesFromServer(count) {
       prefix: finalPrefix,
       count,
       mode: modeCode === "0" ? "A" : "B",
-      idParts: finalPrefix.split("-") // 이거 서버에서 필요할 경우 추가
+      idParts: finalPrefix.split("-"),
+      week: weekNumber // weeknumber 추가
     })
   });
 
