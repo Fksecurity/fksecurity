@@ -1,201 +1,546 @@
 <!DOCTYPE html>
 <html lang="ko">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>📦 외부 바코드 출력기</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Libre+Barcode+128&display=swap" rel="stylesheet">
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>📦 외부 바코드 출력기 (jsPDF + bwip-js)</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/bwip-js/dist/bwip-js-min.js"></script>
+<style>
+  #barcodePreview {
+    font-family: monospace;
+    font-size: 18px;
+    word-break: break-all;
+    color: #2563eb; /* Tailwind blue-800 */
+  }
+</style>
 </head>
 <body class="bg-gray-100 text-sm">
-  <div class="max-w-5xl mx-auto p-4">
-    <h1 class="text-2xl font-bold mb-4">🖨️ 외부 출력 전용 바코드 생성기</h1>
+<div class="max-w-5xl mx-auto p-4">
+  <h1 class="text-2xl font-bold mb-4">🖨️ 외부 출력 전용 바코드 생성기 (jsPDF + bwip-js)</h1>
 
-    <div class="flex gap-4">
-      <!-- 왼쪽 입력 -->
-      <div class="w-1/2 space-y-4 pr-2">
-        <button id="addFieldBtn" class="px-4 py-2 bg-blue-600 text-white rounded">➕ 필드 추가</button>
-        <div id="fieldsContainer" class="space-y-4"></div>
+  <!-- 날짜 및 주차 영역 -->
+  <div class="flex justify-end items-center space-x-4 mb-4">
+    <div id="dateDisplay" class="text-gray-600 font-semibold"></div>
+    <div id="weekDisplay" class="text-gray-800 font-bold"></div>
+  </div>
+
+  <div class="flex gap-4">
+    <!-- 입력 필드 영역 -->
+    <div class="w-1/2 space-y-4 pr-2">
+      <button id="addFieldBtn" class="px-4 py-2 bg-blue-600 text-white rounded">➕ 필드 추가</button>
+      <div id="fieldsContainer" class="space-y-4"></div>
+    </div>
+
+    <!-- 출력 및 미리보기 -->
+    <div>
+      <h2 class="font-bold mb-2">🎯 미리보기</h2>
+      <div id="barcodePreview"></div>
+
+      <div class="flex gap-2 items-center mt-4">
+        <label for="printCount" class="font-bold">출력 매수</label>
+        <input id="printCount" type="number" min="1" value="1" class="border p-2 rounded w-24" />
       </div>
 
-      <!-- 오른쪽 미리보기 -->
-      <div>
-        <h2 class="font-bold mb-2">🎯 미리보기</h2>
-        <div id="barcodePreview" class="text-2xl font-mono tracking-widest text-blue-800 break-all"></div>
-
-        <div class="flex gap-2 items-center mt-4">
-          <label for="printCount" class="font-bold">출력 매수</label>
-          <input id="printCount" type="number" min="1" value="1" class="border p-2 rounded w-24" />
-        </div>
-
-        <div class="flex gap-2 mt-6">
-          <button id="printA4" class="bg-blue-600 text-white px-4 py-2 rounded">🖨️ A4 출력</button>
-          <button id="printBixolon" class="bg-purple-600 text-white px-4 py-2 rounded">🖨️ Bixolon 출력</button>
-          <button id="printLabel" class="bg-orange-600 text-white px-4 py-2 rounded">🖨️ 라벨 출력</button>
-        </div>
+      <div class="flex gap-2 mt-6">
+        <button id="printA4" class="bg-blue-600 text-white px-4 py-2 rounded">🖨️ A4 PDF 출력</button>
+        <button id="printBixolon" class="bg-purple-600 text-white px-4 py-2 rounded">🖨️ Bixolon 출력</button>
+        <button id="printLabel" class="bg-orange-600 text-white px-4 py-2 rounded">🖨️ 라벨 PDF 출력</button>
       </div>
     </div>
   </div>
+  </div>
+<!-- 안내문 하단에 추가 -->
+<div class="mt-12 text-center text-[11px] text-red-400 italic">
+  ※ 본 페이지의 코드 및 로직은 창작자에게 귀속되며, 무단 복제 및 탈취 시 법적 책임을 질 수 있습니다.
+</div>
+
+  <!-- 히든 설정창 탭 버튼 -->
+  <div id="settingsTabs" class="hidden mt-10 space-x-2">
+    <button class="px-4 py-2 bg-gray-200 rounded" data-tab="a4">📄 A4 설정</button>
+    <button class="px-4 py-2 bg-gray-200 rounded" data-tab="bixolon">🖨️ Bixolon 설정</button>
+    <button class="px-4 py-2 bg-gray-200 rounded" data-tab="label">🏷️ 라벨 설정</button>
+  </div>
+
+  <!-- 설정창 영역 -->
+  <div id="settingsPanel" class="hidden mt-4 border-2 border-yellow-400 p-4 bg-yellow-50">
+    <div id="tab-a4" class="tab hidden"></div>
+    <div id="tab-bixolon" class="tab hidden"></div>
+    <div id="tab-label" class="tab hidden"></div>
+    <div class="text-right mt-4">
+      <button id="applySettingsBtn" class="px-4 py-2 bg-green-600 text-white rounded">💾 적용하기</button>
+    </div>
+
+</div>
 
 <script>
-  const fieldsContainer = document.getElementById("fieldsContainer");
-  const barcodePreview = document.getElementById("barcodePreview");
-  const addFieldBtn = document.getElementById("addFieldBtn");
+const { jsPDF } = window.jspdf;
 
-  addFieldBtn.addEventListener("click", () => {
-    const wrapper = document.createElement("div");
-    wrapper.className = "flex items-center gap-2";
+const fieldsContainer = document.getElementById("fieldsContainer");
+const barcodePreview = document.getElementById("barcodePreview");
+const addFieldBtn = document.getElementById("addFieldBtn");
 
-    const select = document.createElement("select");
-    select.className = "border p-2 rounded";
-    select.innerHTML = `
-      <option value="fixed">고정값</option>
-      <option value="dynamic">변동값</option>
-      <option value="serial">임의번호</option>
-      <option value="shift">모드 선택</option>
-    `;
+// 설정 탭 기본 HTML 정의 (한번만 세팅)
+const tabContents = {
+  a4: `
+    <label class="block mb-2">바코드 확대 배율 (scale)<input id="a4-scale" type="number" value="3" min="1" max="10" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">텍스트 포함 여부 (true/false)<input id="a4-includetext" type="text" value="true" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">텍스트 크기 (pt)<input id="a4-textsize" type="number" value="14" min="6" max="40" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">여백 (pt)<input id="a4-margin" type="number" value="40" min="0" max="200" class="border p-1 rounded w-24 ml-2" /></label>
+  `,
+  bixolon: `
+    <label class="block mb-2">바코드 높이 (px)<input id="bix-barcodeHeight" type="number" value="80" min="10" max="300" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">바코드 너비 (scale)<input id="bix-barcodeWidth" type="number" value="2" min="1" max="10" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">폰트<input id="bix-font" type="text" value="FONT_A" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">X 위치<input id="bix-x" type="number" value="10" min="0" max="500" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">Y 위치<input id="bix-y" type="number" value="60" min="0" max="500" class="border p-1 rounded w-24 ml-2" /></label>
+  `,
+  label: `
+    <label class="block mb-2">라벨 가로 크기 (mm)<input id="label-width" type="number" value="50" min="10" max="200" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">라벨 세로 크기 (mm)<input id="label-height" type="number" value="40" min="10" max="200" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">바코드 확대 배율 (scale)<input id="label-scale" type="number" value="3" min="1" max="10" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">텍스트 포함 여부 (true/false)<input id="label-includetext" type="text" value="true" class="border p-1 rounded w-24 ml-2" /></label>
+    <label class="block mb-2">텍스트 크기 (pt)<input id="label-textsize" type="number" value="14" min="6" max="40" class="border p-1 rounded w-24 ml-2" /></label>
+  `
+};
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "border p-2 rounded w-48";
-    input.placeholder = "값 입력 또는 자동";
+// 탭 초기화
+for (const [key, html] of Object.entries(tabContents)) {
+  document.getElementById(`tab-${key}`).innerHTML = html;
+}
 
-    wrapper.appendChild(select);
-    wrapper.appendChild(input);
-    fieldsContainer.appendChild(wrapper);
+// 필드 추가
+// ✅ 필드 추가 버튼 클릭 시 동작
+addFieldBtn.addEventListener("click", () => {
+  const wrapper = document.createElement("div");
+  wrapper.className = "flex items-center gap-2";
 
-    select.addEventListener("change", () => {
-      const modeDropdown = wrapper.querySelector("select.mode-select");
-      if (modeDropdown) modeDropdown.remove();
+  const select = document.createElement("select");
+  select.className = "border p-2 rounded";
+  select.innerHTML = `
+    <option value="" selected disabled>항목 선택</option>
+    <option value="fixed">고정값</option>
+    <option value="shift">모드 선택</option>
+  `;
 
-      if (select.value === "fixed" || select.value === "dynamic") {
-        input.disabled = false;
-        input.value = select.value === "fixed" ? "" : "(자동 검색)";
-        if (!wrapper.contains(input)) wrapper.appendChild(input);
-      } else if (select.value === "serial") {
-        input.disabled = true;
-        input.value = "(자동 부여)";
-        if (!wrapper.contains(input)) wrapper.appendChild(input);
-      } else if (select.value === "shift") {
-        input.remove();
-        const dropdown = document.createElement("select");
-        dropdown.className = "border p-2 rounded mode-select";
-        dropdown.innerHTML = `<option value="모드 A">모드 A</option><option value="모드 B">모드 B</option>`;
-        wrapper.appendChild(dropdown);
-        dropdown.addEventListener("change", generateBarcode);
-      }
-      generateBarcode();
-    });
+  const input = document.createElement("input");
+  input.type = "text";
+  input.className = "border p-2 rounded w-48";
+  input.placeholder = "값 입력 또는 자동";
 
-    input.addEventListener("input", generateBarcode);
+  // ✅ 하이픈 2개 이상 감지 로직
+  input.addEventListener("input", () => {
+      // 👉 대문자 자동 변환
+  input.value = input.value.toUpperCase();
+    const hyphenCount = (input.value.match(/-/g) || []).length;
+    if (hyphenCount > 1) {
+      alert("❌ 하이픈(-)은 1개까지만 허용됩니다.");
+      input.value = "";
+    }
     generateBarcode();
   });
 
-  function generateBarcode() {
-    const parts = [];
-    for (const wrapper of fieldsContainer.children) {
-      const selectType = wrapper.querySelector("select:first-child");
-      const valueInput = wrapper.querySelector("input, select.mode-select");
-      if (!selectType || !valueInput) continue;
+  wrapper.appendChild(select);
+  fieldsContainer.appendChild(wrapper);
 
-      if (selectType.value === "shift") {
-        parts.push(valueInput.value === "모드 A" ? "0" : "5");
-      } else {
-        if (!valueInput.disabled && valueInput.value) {
-          parts.push(valueInput.value);
-        }
-      }
-    }
-    barcodePreview.textContent = parts.join("");
-  }
+  function updateInputBySelect() {
+    const existingDropdown = wrapper.querySelector("select.mode-select");
+    if (existingDropdown) existingDropdown.remove();
 
-  async function getFinalBarcodesFromServer(count) {
-    const prefixParts = [];
-    let modeCode = null;
-
-    for (const wrapper of fieldsContainer.children) {
-      const selectType = wrapper.querySelector("select:first-child");
-      const valueInput = wrapper.querySelector("input, select.mode-select");
-
-      if (!selectType || !valueInput) continue;
-
-      if (selectType.value === "shift") {
-        modeCode = valueInput.value === "모드 A" ? "A" : "B";
-        prefixParts.push(""); // 자리 확보
-      } else if (selectType.value === "serial") {
-        prefixParts.push(""); // 자리 확보
-      } else {
-        prefixParts.push(valueInput.value.trim());
-      }
+    // 항목 선택(default)일 경우 아무것도 안보이게
+    if (select.value === "") {
+      if (wrapper.contains(input)) input.remove();
+      return;
     }
 
-    const prefix = prefixParts.filter(p => p !== "").join("");
+    if (select.value === "fixed") {
+      if (!wrapper.contains(input)) wrapper.appendChild(input);
+      input.disabled = false;
+      input.value = "";
+    } else if (select.value === "shift") {
+      if (wrapper.contains(input)) input.remove();
+      const dropdown = document.createElement("select");
+      dropdown.className = "border p-2 rounded mode-select";
+      dropdown.innerHTML = `
+        <option value="모드 A">모드 A</option>
+        <option value="모드 B">모드 B</option>
+      `;
+      wrapper.appendChild(dropdown);
+      dropdown.addEventListener("change", generateBarcode);
+    }
 
-    const response = await fetch("https://fksecurity.onrender.com/dev-next-barcode", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ prefix, mode: modeCode || "A", count })
-    });
-
-    if (!response.ok) throw new Error("❌ 서버 오류");
-    const data = await response.json();
-    return data.barcodes;
+    generateBarcode();
   }
 
-  async function handlePrint(type) {
+  select.addEventListener("change", () => {
+    const alreadyHasFixed = [...fieldsContainer.querySelectorAll("select")]
+      .filter(sel => sel.value === "fixed").length > 1;
+
+    if (select.value === "fixed" && alreadyHasFixed) {
+      alert("고정값 필드는 1개만 생성할 수 있습니다.");
+      select.value = "";
+      updateInputBySelect(); // 입력 제거
+      return;
+    }
+
+    updateInputBySelect();
+  });
+});
+
+
+// 바코드 조합 미리보기 생성
+function generateBarcode() {
+  const parts = [];
+  let modeCode = null;
+  const weekNumber = getCompanyWeekNumber(new Date());
+
+  for (const wrapper of fieldsContainer.children) {
+    const selectType = wrapper.querySelector("select:first-child");
+    const valueInput = wrapper.querySelector("input, select.mode-select");
+
+    if (!selectType || !valueInput) continue;
+
+    const val = valueInput.value.trim();
+
+    if (selectType.value === "shift") {
+      modeCode = val === "모드 A" ? "0" : "5";
+    } else if (selectType.value === "serial") {
+      continue;
+    } else {
+      parts.push(val); // 값이 비어도 넣기
+    }
+  }
+
+  if (modeCode !== null) {
+    parts.push(`${weekNumber}${modeCode}`);
+  }
+
+  // 빈 값은 제거하고 조인
+  barcodePreview.textContent = parts.filter(Boolean).join("-");
+}
+
+// 주차 계산 (일요일 시작 주차)
+function getCompanyWeekNumber(date) {
+  const year = date.getFullYear();
+  const jan1 = new Date(year, 0, 1);
+  const jan1Day = jan1.getDay(); // 0: 일요일
+
+  const firstSunday = new Date(jan1);
+  firstSunday.setDate(jan1.getDate() - jan1Day);
+
+  const diffInMs = date - firstSunday;
+  const diffInDays = Math.floor(diffInMs / (1000 * 60 * 60 * 24));
+  const week = Math.floor(diffInDays / 7) + 1;
+  return week;
+}
+
+// 날짜 및 주차 표시 업데이트
+function updateDateAndWeek() {
+  const now = new Date();
+  const week = getCompanyWeekNumber(now);
+  const dateText = now.toLocaleDateString("ko-KR", {
+    year: "numeric", month: "long", day: "numeric", weekday: "long"
+  });
+  document.getElementById("dateDisplay").textContent = `🕒 ${dateText}`;
+  document.getElementById("weekDisplay").textContent = `📅 ${week}주차`;
+}
+updateDateAndWeek();
+
+// 서버에서 바코드 번호 받아오기
+async function getFinalBarcodesFromServer(count) {
+  const combinedParts = [];
+  let modeCode = null;
+  for (const wrapper of fieldsContainer.children) {
+    const selectType = wrapper.querySelector("select:first-child");
+    const valueInput = wrapper.querySelector("input, select.mode-select");
+    if (!selectType || !valueInput) continue;
+
+    if (selectType.value === "shift") {
+      modeCode = valueInput.value === "모드 A" ? "0" : "5";
+    } else if (selectType.value === "serial") {
+      continue;
+    } else {
+      combinedParts.push(valueInput.value.trim());
+    }
+  }
+
+  if (modeCode !== null) {
+    const weekNumber = getCompanyWeekNumber(new Date());
+    combinedParts.push(`${weekNumber}${modeCode}`);
+  }
+
+  const finalPrefix = combinedParts.join("-");
+
+const response = await fetch(`https://fksecurity.onrender.com/dev-next-barcode?_=${Date.now()}`, {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  body: JSON.stringify({ prefix: finalPrefix, count })
+});
+
+  // ✅ 중복 에러 발생 시 처리
+  if (response.status === 409) {
+    const err = await response.json();
+    alert("❗ 다른 사용자가 먼저 작업했습니다.\n잠시 후 다시 시도하거나 페이지를 새로고침해주세요.");
+    throw new Error("중복된 바코드 요청");
+  }
+
+  if (!response.ok) {
+    throw new Error("❌ 서버 오류");
+  }
+
+  const data = await response.json();
+  return data.barcodes;
+}
+
+
+// 바코드 출력 처리
+async function handlePrint(type) {
   try {
     const count = parseInt(document.getElementById("printCount").value || "1");
     const barcodes = await getFinalBarcodesFromServer(count);
-    
     barcodePreview.textContent = barcodes.join(", ");
 
-    if (type === "a4" || type === "label") {
-      // 출력 코드 ...
-    } else if (type === "bixolon") {
+    const { jsPDF } = window.jspdf;
+
+    if (type === "bixolon") {
+      const bix = {
+        height: parseInt(document.getElementById("bix-barcodeHeight")?.value) || 80,
+        width: parseInt(document.getElementById("bix-barcodeWidth")?.value) || 2,
+        font: document.getElementById("bix-font")?.value || "FONT_A",
+        x: parseInt(document.getElementById("bix-x")?.value) || 10,
+        y: parseInt(document.getElementById("bix-y")?.value) || 60
+      };
       for (const code of barcodes) {
-        const payload = JSON.stringify({
+        const payload = {
           version: "1.0",
           commands: [
-            { cmd: "printText", text: code, x: 10, y: 10, font: "FONT_A", hFactor: 2, vFactor: 2 },
-            { cmd: "printBarcode", type: "Code128", text: code, x: 10, y: 50, height: 50 }
+            { cmd: "drawDeviceFont", text: code, x: bix.x, y: bix.y - 50, font: bix.font, scale: 2 },
+            { cmd: "printBarcode", type: "CODE128", text: code, x: bix.x, y: bix.y, width: bix.width, height: bix.height, hri: true },
+            { cmd: "printBuffer" }
           ]
+        };
+        await fetch("http://127.0.0.1:9200/WebPrintSDK/printe1", {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: "data=" + encodeURIComponent(JSON.stringify(payload))
         });
-        await requestPrint("SLP-DX423", payload);
       }
       alert("✅ Bixolon 출력 완료");
+      triggerReload();
+      return;
     }
+
+    let pdf;
+    if (type === "label") {
+      pdf = new jsPDF({ orientation: "landscape", unit: "mm", format: [50, 40] });
+      for (let i = 0; i < barcodes.length; i++) {
+        const code = barcodes[i];
+        if (i > 0) pdf.addPage([50, 40]);
+
+        const canvas = document.createElement("canvas");
+        canvas.width = 600;
+        canvas.height = 240;
+        await bwipjs.toCanvas(canvas, {
+          bcid: "code128",
+          text: code,
+          scale: 3.5,
+          height: 10,
+          includetext: true,
+          textxalign: "center",
+          textsize: 9
+        });
+        const img = canvas.toDataURL("image/png");
+        pdf.setDrawColor(0);
+        pdf.setLineWidth(0.5);
+        pdf.rect(0.5, 0.5, 49, 39);
+        pdf.addImage(img, "PNG", 4, 4, 42, 32);
+      }
+    } else if (type === "a4") {
+      pdf = new jsPDF({ orientation: "portrait", unit: "mm", format: "a4" });
+      for (let i = 0; i < barcodes.length; i++) {
+        const code = barcodes[i];
+        const canvas = document.createElement("canvas");
+        canvas.width = 1200;
+        canvas.height = 400;
+        await bwipjs.toCanvas(canvas, {
+          bcid: "code128",
+          text: code,
+          scale: 5,
+          height: 12,
+          includetext: true,
+          textxalign: "center",
+          textsize: 30
+        });
+        const img = canvas.toDataURL("image/png");
+        pdf.addImage(img, "PNG", 40, 70, 150, 50);
+        if (i < barcodes.length - 1) pdf.addPage();
+      }
+    }
+
+    pdf.autoPrint();
+    const blob = await pdf.output("blob");
+    const url = URL.createObjectURL(blob);
+    window.open(url, "_blank");
+
+    console.log("📦 Blob 출력 확인:", blob);
+    triggerReload();
+
   } catch (err) {
-    console.error(err);
-    alert("❌ 출력 실패: 서버 또는 연결 확인");
+    console.error("💥 출력 실패:", err);
+    alert("❌ 출력 실패: 서버 또는 연결 상태 확인!");
   }
 }
 
-  function requestPrint(printerName, payload, callback) {
-    return fetch(`http://127.0.0.1:9200/WebPrintSDK/${printerName}`, {
+// ✅ 새로고침 트리거 함수
+function triggerReload() {
+  // 버튼 전부 비활성화
+  const allButtons = document.querySelectorAll("button");
+  allButtons.forEach(btn => btn.disabled = true);
+
+  // 1초 후 강제 새로고침
+  setTimeout(() => location.reload(), 1000);
+
+  // 포커스 복귀 시에도 1회만 새로고침
+  let alreadyReloaded = false;
+  window.onfocus = () => {
+    if (!alreadyReloaded) {
+      alreadyReloaded = true;
+      location.reload();
+    }
+  };
+}
+
+
+
+// 커스텀 프린트 트리거 감지 및 설정창 토글
+function checkForCustomPrintTrigger() {
+  const allInputs = fieldsContainer.querySelectorAll("input");
+  const triggerFound = Array.from(allInputs).some(input => input.value.trim().toLowerCase() === "customprint");
+
+  document.getElementById("settingsTabs").classList.toggle("hidden", !triggerFound);
+  document.getElementById("settingsPanel").classList.toggle("hidden", !triggerFound);
+  if (triggerFound) loadSettingsFromServer();
+}
+fieldsContainer.addEventListener("input", checkForCustomPrintTrigger);
+
+// 설정 탭 전환 이벤트
+document.querySelectorAll("#settingsTabs button").forEach(btn => {
+  btn.addEventListener("click", () => {
+    const tab = btn.dataset.tab;
+    document.querySelectorAll(".tab").forEach(el => el.classList.add("hidden"));
+    document.getElementById(`tab-${tab}`).classList.remove("hidden");
+    document.querySelectorAll("#settingsTabs button").forEach(b => b.classList.remove("bg-blue-600", "text-white"));
+    btn.classList.add("bg-blue-600", "text-white");
+  });
+});
+
+// 설정 저장
+document.getElementById("applySettingsBtn").addEventListener("click", async () => {
+  const settings = {
+    a4: {
+      scale: document.getElementById("a4-scale").value,
+      includetext: document.getElementById("a4-includetext").value,
+      textsize: document.getElementById("a4-textsize").value,
+      margin: document.getElementById("a4-margin").value
+    },
+    bixolon: {
+      barcodeHeight: document.getElementById("bix-barcodeHeight").value,
+      barcodeWidth: document.getElementById("bix-barcodeWidth").value,
+      font: document.getElementById("bix-font").value,
+      x: document.getElementById("bix-x").value,
+      y: document.getElementById("bix-y").value
+    },
+    label: {
+      width: document.getElementById("label-width").value,
+      height: document.getElementById("label-height").value,
+      scale: document.getElementById("label-scale").value,
+      includetext: document.getElementById("label-includetext").value,
+      textsize: document.getElementById("label-textsize").value
+    }
+  };
+  try {
+    await fetch("https://fksecurity.onrender.com/save-settings", {
       method: "POST",
-      headers: {
-        "Content-Type": "application/x-www-form-urlencoded"
-      },
-      body: `param=${encodeURIComponent(payload)}`
-    })
-    .then(res => {
-      if (!res.ok) throw new Error("❌ Bixolon 프린트 실패");
-      return res.text();
-    })
-    .then(text => {
-      console.log("📦 Bixolon 응답:", text);
-      if (callback) callback();
-    })
-    .catch(err => {
-      console.error(err);
-      alert("❌ Bixolon 출력 실패: WebDriver 실행 중인지 확인하세요.");
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(settings)
     });
+    alert("✅ 설정값 저장 완료");
+  } catch(e) {
+    console.error("설정 저장 실패", e);
+    alert("❌ 설정 저장 실패");
   }
+});
 
-  document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
-  document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
-  document.getElementById("printLabel").addEventListener("click", () => handlePrint("label"));
+// 설정 불러오기
+async function loadSettingsFromServer() {
+  try {
+    const res = await fetch("https://fksecurity.onrender.com/load-settings");
+    const settings = await res.json();
+    if (!settings) return;
+
+    // A4
+    if (settings.a4) {
+      document.getElementById("a4-scale").value = settings.a4.scale ?? 3;
+      document.getElementById("a4-includetext").value = settings.a4.includetext ?? "true";
+      document.getElementById("a4-textsize").value = settings.a4.textsize ?? 14;
+      document.getElementById("a4-margin").value = settings.a4.margin ?? 40;
+    }
+    // Bixolon
+    if (settings.bixolon) {
+      document.getElementById("bix-barcodeHeight").value = settings.bixolon.barcodeHeight ?? 80;
+      document.getElementById("bix-barcodeWidth").value = settings.bixolon.barcodeWidth ?? 2;
+      document.getElementById("bix-font").value = settings.bixolon.font ?? "FONT_A";
+      document.getElementById("bix-x").value = settings.bixolon.x ?? 10;
+      document.getElementById("bix-y").value = settings.bixolon.y ?? 60;
+    }
+    // Label
+    if (settings.label) {
+      document.getElementById("label-width").value = settings.label.width ?? 50;
+      document.getElementById("label-height").value = settings.label.height ?? 40;
+      document.getElementById("label-scale").value = settings.label.scale ?? 3;
+      document.getElementById("label-includetext").value = settings.label.includetext ?? "true";
+      document.getElementById("label-textsize").value = settings.label.textsize ?? 14;
+    }
+  } catch(e) {
+    console.warn("설정 불러오기 실패", e);
+  }
+}
+
+// 출력 버튼 이벤트 바인딩
+document.getElementById("printA4").addEventListener("click", () => handlePrint("a4"));
+document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
+document.getElementById("printLabel").addEventListener("click", () => handlePrint("label"));
+
+(function detectDevToolsAbuse() {
+  let triggered = false;
+
+  const warnAndRedirect = () => {
+    if (triggered) return;
+    triggered = true;
+    alert("⚠️ 해당 페이지는 회사의 자산이 아닌 개인 자산으로 로직 탈취는 민,형사상 고발 대상이 됩니다.\n\nAI 돌리고 싶으면 귀하가 직접 로직 짜시기 바랍니다.");
+    location.href = "about:blank";
+  };
+
+  // 창 크기 급변 감지
+  setInterval(() => {
+    const w = window.outerWidth - window.innerWidth;
+    const h = window.outerHeight - window.innerHeight;
+    if (w > 160 || h > 160) {
+      warnAndRedirect();
+    }
+  }, 1000);
+
+  // 콘솔 열기 감지
+  const bait = new Image();
+  Object.defineProperty(bait, 'id', {
+    get() {
+      warnAndRedirect();
+    }
+  });
+  console.log('%c', bait);
+})();
+
 </script>
-
 </body>
 </html>
