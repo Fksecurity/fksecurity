@@ -145,7 +145,7 @@ app.post("/dev-next-barcode", async (req, res) => {
       }
 
       const barcodes = Array.from({ length: count }, (_, i) => {
-        return `${prefix}-${week}${daynightnum}-${last_number + i + 1}`;
+        return `${prefix}-${last_number + i + 1}`;
       });
 
       console.log("✅ 이어서 바코드 생성:", barcodes);
