@@ -85,53 +85,142 @@ app.post("/next-barcode", (req, res) => {
 
 // 개발용 next-barcode
 app.post("/dev-next-barcode", async (req, res) => {
-  const { prefix, mode, count } = req.body;
+  const { prefix, mode, count, week, idParts } = req.body;
+
+  console.log("📥 [REQ] 바코드 요청 받음");
+  console.log(" └─ Prefix:", prefix);
+  console.log(" └─ Mode:", mode);
+  console.log(" └─ Count:", count);
+  console.log(" └─ Week:", week);
+  console.log(" └─ ID Parts:", idParts);
 
   try {
-    // 1. 모드 A or B → Supabase에서 daynightnum 조회
     let modeLabel = mode; // "A" or "B"
     let dayNightNum = null;
+
+    console.log("🔎 Supabase에서 기존 row 조회 중...");
 
     const { data, error } = await supabase
       .from("barcode_sequence_v2")
       .select("daynightnum")
-      .eq("id", prefix)  // ← ID = prefix
+      .eq("id", prefix)
+      .eq("week", week)
       .eq("mode", modeLabel)
       .single();
 
     if (error && error.code !== "PGRST116") {
-      console.error("🧨 Supabase 오류:", error);
+      console.error("🧨 Supabase SELECT 오류:", error);
       return res.status(500).json({ error: "DB 조회 실패" });
     }
 
     if (data && data.daynightnum !== null) {
       dayNightNum = data.daynightnum;
+      console.log("✅ 기존 row 발견 - daynightnum:", dayNightNum);
     } else {
-      // 없으면 기본값: A → 0, B → 5
       dayNightNum = modeLabel === "A" ? 0 : 5;
+      console.log("🆕 신규 row 생성 - 기본 daynightnum:", dayNightNum);
 
-      // 새로운 row 생성
-      await supabase.from("barcode_sequence_v2").insert([{
-        id: prefix,
-        week: getCurrentWeekNumber(),
-        mode: modeLabel,
-        daynightnum: dayNightNum,
-        last_number: 0,
-        updated_at: new Date().toISOString()
-      }]);
+      const { error: insertError } = await supabase
+        .from("barcode_sequence_v2")
+        .insert([{
+          id: prefix,
+          week,
+          mode: modeLabel,
+          daynightnum: dayNightNum,
+          last_number: 0,
+          updated_at: new Date().toISOString()
+        }]);
+
+      if (insertError) {
+        console.error("💥 Supabase INSERT 실패:", insertError);
+        return res.status(500).json({ error: "신규 row 생성 실패" });
+      }
     }
 
-    // ...여기부터 기존 key 조합 + sequence 증가 로직...
-    const key = `${prefix}-${getCurrentWeekNumber()}${dayNightNum}`;
+    console.log("🔁 last_number 조회 중...");
 
-    // 예: barcodes[key] = 1, 2, ... 증가
-    // 결과 바코드 배열 생성해서 res.json({ barcodes }) 반환
+    const { data: row, error: err2 } = await supabase
+      .from("barcode_sequence_v2")
+      .select("*")
+      .eq("id", prefix)
+      .eq("week", week)
+      .eq("mode", modeLabel)
+      .eq("daynightnum", dayNightNum)
+      .single();
+
+    if (err2) {
+      console.error("📛 last_number 조회 실패:", err2);
+      return res.status(500).json({ error: "last_number 조회 실패" });
+    }
+
+    let lastNumber = row.last_number ?? 0;
+    console.log(`📦 현재 last_number: ${lastNumber} / 요청 수량: ${count}`);
+
+    // 999 초과 체크
+    if (lastNumber + count > 999) {
+      const nextDN = dayNightNum + 1;
+      const dnMax = modeLabel === "A" ? 4 : 9;
+
+      console.warn("⛔️ 999 초과! 다음 daynightnum 시도:", nextDN);
+
+      if (nextDN > dnMax) {
+        console.error("🛑 가능한 주야코드 없음 → 관리자 확인 필요");
+        return res.status(409).json({ error: "바코드 초과: 주야 코드 없음" });
+      }
+
+      // 새 row 생성
+      const { error: insertNextError } = await supabase
+        .from("barcode_sequence_v2")
+        .upsert({
+          id: prefix,
+          week,
+          mode: modeLabel,
+          daynightnum: nextDN,
+          last_number: count,
+          updated_at: new Date().toISOString()
+        });
+
+      if (insertNextError) {
+        console.error("💣 next daynightnum INSERT 실패:", insertNextError);
+        return res.status(500).json({ error: "다음 주야코드 row 생성 실패" });
+      }
+
+      dayNightNum = nextDN;
+      lastNumber = 0;
+
+    } else {
+      // 기존 row 업데이트
+      const { error: updateError } = await supabase
+        .from("barcode_sequence_v2")
+        .update({
+          last_number: lastNumber + count,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", prefix)
+        .eq("week", week)
+        .eq("mode", modeLabel)
+        .eq("daynightnum", dayNightNum);
+
+      if (updateError) {
+        console.error("💥 last_number UPDATE 실패:", updateError);
+        return res.status(500).json({ error: "바코드 번호 갱신 실패" });
+      }
+    }
+
+    const barcodes = Array.from({ length: count }, (_, i) => {
+      const serial = lastNumber + i + 1;
+      return `${prefix}-${week}${dayNightNum}-${serial}`;
+    });
+
+    console.log("✅ 최종 바코드 배열:", barcodes);
+    res.json({ barcodes });
 
   } catch (e) {
-    console.error("💥 바코드 생성 실패:", e);
+    console.error("💥 바코드 생성 전체 실패:", e);
     res.status(500).json({ error: "서버 내부 오류" });
   }
 });
+
 
 // 설정 저장
 import fs from "fs-extra";
