@@ -85,49 +85,52 @@ app.post("/next-barcode", (req, res) => {
 
 // 개발용 next-barcode
 app.post("/dev-next-barcode", async (req, res) => {
-  const { prefix, week, mode, count = 1 } = req.body;
+  const { prefix, mode, count } = req.body;
 
-  if (!prefix || !week || !mode || typeof count !== "number") {
-    return res.status(400).json({ error: "prefix, week, mode, count는 필수입니다." });
-  }
+  try {
+    // 1. 모드 A or B → Supabase에서 daynightnum 조회
+    let modeLabel = mode; // "A" or "B"
+    let dayNightNum = null;
 
-  const dnStart = mode === "A" ? 0 : 5;
-  const dnEnd = mode === "A" ? 4 : 9;
-
-  for (let dn = dnStart; dn <= dnEnd; dn++) {
     const { data, error } = await supabase
-      .from("barcode_sequences_v2")
-      .select("last_number")
-      .eq("id", prefix)
-      .eq("week", week)
-      .eq("mode", mode)
-      .eq("daynightnum", dn)
+      .from("barcode_sequence_v2")
+      .select("daynightnum")
+      .eq("id", prefix)  // ← ID = prefix
+      .eq("mode", modeLabel)
       .single();
 
     if (error && error.code !== "PGRST116") {
-      return res.status(500).json({ error: error.message });
+      console.error("🧨 Supabase 오류:", error);
+      return res.status(500).json({ error: "DB 조회 실패" });
     }
 
-    const last = data?.last_number || 0;
+    if (data && data.daynightnum !== null) {
+      dayNightNum = data.daynightnum;
+    } else {
+      // 없으면 기본값: A → 0, B → 5
+      dayNightNum = modeLabel === "A" ? 0 : 5;
 
-    if (last + count <= 999) {
-      const nextStart = last + 1;
-      const nextEnd = last + count;
-      const barcodes = Array.from({ length: count }, (_, i) => `${prefix}-${week}${dn}-${nextStart + i}`);
-
-      const { error: upsertError } = await supabase
-        .from("barcode_sequences_v2")
-        .upsert([{ id: prefix, week, mode, daynightnum: dn, last_number: nextEnd, updated_at: new Date().toISOString() }]);
-
-      if (upsertError) {
-        return res.status(500).json({ error: upsertError.message });
-      }
-
-      return res.json({ barcodes });
+      // 새로운 row 생성
+      await supabase.from("barcode_sequence_v2").insert([{
+        id: prefix,
+        week: getCurrentWeekNumber(),
+        mode: modeLabel,
+        daynightnum: dayNightNum,
+        last_number: 0,
+        updated_at: new Date().toISOString()
+      }]);
     }
+
+    // ...여기부터 기존 key 조합 + sequence 증가 로직...
+    const key = `${prefix}-${getCurrentWeekNumber()}${dayNightNum}`;
+
+    // 예: barcodes[key] = 1, 2, ... 증가
+    // 결과 바코드 배열 생성해서 res.json({ barcodes }) 반환
+
+  } catch (e) {
+    console.error("💥 바코드 생성 실패:", e);
+    res.status(500).json({ error: "서버 내부 오류" });
   }
-
-  return res.status(400).json({ error: `❌ ${mode === "A" ? "주간" : "야간"} 코드 전부 소진됨` });
 });
 
 // 설정 저장
