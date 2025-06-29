@@ -209,7 +209,7 @@ app.post("/dev-next-barcode", async (req, res) => {
 
     const barcodes = Array.from({ length: count }, (_, i) => {
       const serial = lastNumber + i + 1;
-      return `${prefix}-${week}${dayNightNum}-${serial}`;
+      return `${prefix}-${serial}`;
     });
 
     console.log("✅ 최종 바코드 배열:", barcodes);
