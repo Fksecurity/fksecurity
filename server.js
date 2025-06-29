@@ -83,6 +83,53 @@ app.post("/next-barcode", (req, res) => {
   if (requestQueue.length === 1) processQueue();
 });
 
+// 개발용 next-barcode
+app.post("/dev-next-barcode", async (req, res) => {
+  const { prefix, week, mode, count = 1 } = req.body;
+
+  if (!prefix || !week || !mode || typeof count !== "number") {
+    return res.status(400).json({ error: "prefix, week, mode, count는 필수입니다." });
+  }
+
+  const dnStart = mode === "A" ? 0 : 5;
+  const dnEnd = mode === "A" ? 4 : 9;
+
+  for (let dn = dnStart; dn <= dnEnd; dn++) {
+    const { data, error } = await supabase
+      .from("barcode_sequences_v2")
+      .select("last_number")
+      .eq("id", prefix)
+      .eq("week", week)
+      .eq("mode", mode)
+      .eq("daynightnum", dn)
+      .single();
+
+    if (error && error.code !== "PGRST116") {
+      return res.status(500).json({ error: error.message });
+    }
+
+    const last = data?.last_number || 0;
+
+    if (last + count <= 999) {
+      const nextStart = last + 1;
+      const nextEnd = last + count;
+      const barcodes = Array.from({ length: count }, (_, i) => `${prefix}-${week}${dn}-${nextStart + i}`);
+
+      const { error: upsertError } = await supabase
+        .from("barcode_sequences_v2")
+        .upsert([{ id: prefix, week, mode, daynightnum: dn, last_number: nextEnd, updated_at: new Date().toISOString() }]);
+
+      if (upsertError) {
+        return res.status(500).json({ error: upsertError.message });
+      }
+
+      return res.json({ barcodes });
+    }
+  }
+
+  return res.status(400).json({ error: `❌ ${mode === "A" ? "주간" : "야간"} 코드 전부 소진됨` });
+});
+
 // 설정 저장
 import fs from "fs-extra";
 import path from "path";
