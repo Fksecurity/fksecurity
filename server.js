@@ -12,57 +12,184 @@ app.use(cors());
 app.use(express.json());
 app.use(express.static("public")); // index.html 위치
 
-// 바코드 요청 큐
 const requestQueue = [];
 
 async function processQueue() {
   if (requestQueue.length === 0) return;
 
-  const { prefix, count, res, timeout } = requestQueue[0];
+  const { prefix, count, res, modeLabel, week, timeout } = requestQueue[0];
   const prefixKey = prefix.endsWith("-") ? prefix : prefix + "-";
 
   try {
-    // Supabase에서 현재 last_number 조회
+    console.log("📥 [REQ] 바코드 요청 받음 (큐)");
+    console.log(" └─ Prefix:", prefix);
+    console.log(" └─ Mode:", modeLabel);
+    console.log(" └─ Count:", count);
+    console.log(" └─ Week:", week);
+
     const { data, error } = await supabase
-      .from("barcode_sequences")
-      .select("last_number")
-      .eq("id", prefixKey)
+      .from("barcode_sequence_v2")
+      .select("*")
+      .eq("id", prefix)
+      .eq("week", week)
+      .eq("mode", modeLabel)
+      .order("daynightnum", { ascending: false })
+      .limit(1)
       .single();
 
-    if (error && error.code !== "PGRST116") throw error;
-
-    const last = data?.last_number || 0;
-
-    if (last + count > 999) {
-      res.status(400).json({ error: "❌ 임의번호 999 초과, 새로운 주/야 코드를 설정하세요." });
+    if (error && error.code !== "PGRST116") {
+      console.error("🧨 Supabase SELECT 오류:", error);
+      res.status(500).json({ error: "DB 조회 실패" });
       requestQueue.shift();
       clearTimeout(timeout);
       processQueue();
       return;
     }
 
-    const nextStart = last + 1;
-    const nextEnd = last + count;
-    const barcodes = Array.from({ length: count }, (_, i) => `${prefixKey}${nextStart + i}`);
+    if (!data) {
+      const dayNightNum = modeLabel === "A" ? 0 : 5;
+      const insert = await supabase
+        .from("barcode_sequence_v2")
+        .insert([{
+          id: prefix,
+          week,
+          mode: modeLabel,
+          daynightnum: dayNightNum,
+          last_number: count,
+          updated_at: new Date().toISOString()
+        }]);
 
-    // Supabase 업데이트
-    const { error: upsertError } = await supabase
-      .from("barcode_sequences")
-      .upsert([{ id: prefixKey, last_number: nextEnd, updated_at: new Date().toISOString() }]);
+      if (insert.error) {
+        console.error("💥 신규 row 생성 실패:", insert.error);
+        res.status(500).json({ error: "row 생성 실패" });
+        requestQueue.shift();
+        clearTimeout(timeout);
+        processQueue();
+        return;
+      }
 
-    if (upsertError) throw upsertError;
+      const barcodes = Array.from({ length: count }, (_, i) => {
+        return `${prefix}-${week}${dayNightNum}-${i + 1}`;
+      });
 
+      console.log("✅ 신규 바코드 생성:", barcodes);
+      res.json({ barcodes });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
+      return;
+    }
+
+    let { daynightnum, last_number } = data;
+    const dnMax = modeLabel === "A" ? 4 : 9;
+
+    if (last_number + count <= 999) {
+      const update = await supabase
+        .from("barcode_sequence_v2")
+        .update({
+          last_number: last_number + count,
+          updated_at: new Date().toISOString()
+        })
+        .eq("id", prefix)
+        .eq("week", week)
+        .eq("mode", modeLabel)
+        .eq("daynightnum", daynightnum);
+
+      if (update.error) {
+        console.error("💥 UPDATE 실패:", update.error);
+        res.status(500).json({ error: "바코드 갱신 실패" });
+        requestQueue.shift();
+        clearTimeout(timeout);
+        processQueue();
+        return;
+      }
+
+      const barcodes = Array.from({ length: count }, (_, i) => {
+        return `${prefix}-${week}${daynightnum}-${last_number + i + 1}`;
+      });
+
+      console.log("✅ 이어서 바코드 생성:", barcodes);
+      res.json({ barcodes });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
+      return;
+    }
+
+    const nextDN = daynightnum + 1;
+    if (nextDN > dnMax) {
+      console.error("🛑 주야코드 초과! 더 이상 생성 불가");
+      res.status(409).json({ error: "주야코드 초과" });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
+      return;
+    }
+
+    const { data: nextRow } = await supabase
+      .from("barcode_sequence_v2")
+      .select("*")
+      .eq("id", prefix)
+      .eq("week", week)
+      .eq("mode", modeLabel)
+      .eq("daynightnum", nextDN)
+      .maybeSingle();
+
+    const newStartSerial = 1;
+    const newLastNumber = count;
+
+    const { error: upsertErr } = await supabase
+      .from("barcode_sequence_v2")
+      .upsert({
+        id: prefix,
+        week,
+        mode: modeLabel,
+        daynightnum: nextDN,
+        last_number: newLastNumber,
+        updated_at: new Date().toISOString()
+      }, {
+        onConflict: "id,week,mode,daynightnum"
+      });
+
+    if (upsertErr) {
+      console.error("💥 upsert 실패:", upsertErr);
+      res.status(500).json({ error: "upsert 실패" });
+      requestQueue.shift();
+      clearTimeout(timeout);
+      processQueue();
+      return;
+    }
+
+    const barcodes = Array.from({ length: count }, (_, i) => {
+      return `${prefix}-${week}${nextDN}-${newStartSerial + i}`;
+    });
+
+    console.log("✅ 증가된 주야코드로 바코드 생성:", barcodes);
     res.json({ barcodes });
-
-  } catch (err) {
-    console.error("❌ 큐 처리 중 에러:", err.message);
-    res.status(500).json({ error: "서버 처리 오류" });
+  } catch (e) {
+    console.error("💣 전체 실패:", e);
+    res.status(500).json({ error: "서버 내부 오류" });
   } finally {
     clearTimeout(requestQueue[0].timeout);
     requestQueue.shift();
     processQueue();
   }
 }
+
+app.post("/dev-next-barcode", async (req, res) => {
+  const { prefix, mode, count, week } = req.body;
+  const timeout = setTimeout(() => {
+    res.status(408).json({ error: "⏱️ 요청 타임아웃" });
+    requestQueue.shift();
+    processQueue();
+  }, 10000);
+
+  requestQueue.push({ prefix, count, res, modeLabel: mode, week, timeout });
+  if (requestQueue.length === 1) {
+    processQueue();
+  }
+});
+
 
 // 바코드 API
 app.post("/dev-next-barcode", async (req, res) => {
