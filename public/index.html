@@ -511,34 +511,7 @@ document.getElementById("printA4").addEventListener("click", () => handlePrint("
 document.getElementById("printBixolon").addEventListener("click", () => handlePrint("bixolon"));
 document.getElementById("printLabel").addEventListener("click", () => handlePrint("label"));
 
-(function detectDevToolsAbuse() {
-  let triggered = false;
 
-  const warnAndRedirect = () => {
-    if (triggered) return;
-    triggered = true;
-    alert("⚠️ 해당 페이지는 회사의 자산이 아닌 개인 자산으로 로직 탈취는 민,형사상 고발 대상이 됩니다.\n\nAI 돌리고 싶으면 귀하가 직접 로직 짜시기 바랍니다.");
-    location.href = "about:blank";
-  };
-
-  // 창 크기 급변 감지
-  setInterval(() => {
-    const w = window.outerWidth - window.innerWidth;
-    const h = window.outerHeight - window.innerHeight;
-    if (w > 160 || h > 160) {
-      warnAndRedirect();
-    }
-  }, 1000);
-
-  // 콘솔 열기 감지
-  const bait = new Image();
-  Object.defineProperty(bait, 'id', {
-    get() {
-      warnAndRedirect();
-    }
-  });
-  console.log('%c', bait);
-})();
 
 </script>
 </body>
