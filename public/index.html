@@ -75,6 +75,23 @@
 </div>
 
 <script>
+  (function checkAccessTimeKST() {
+  const nowUTC = new Date();
+  // UTC → KST 변환 (UTC +9)
+  const kst = new Date(nowUTC.getTime() + 9 * 60 * 60 * 1000);
+
+  const hour = kst.getUTCHours(); // KST 시(hour)
+  const minute = kst.getUTCMinutes();
+
+  // 06:00 ~ 18:30 차단
+  const afterStart = (hour > 6) || (hour === 6 && minute >= 0);
+  const beforeEnd = (hour < 18) || (hour === 18 && minute <= 30);
+
+  if (afterStart && beforeEnd) {
+    alert("소통 좋아하시는 분께 문의하세요 (KST 06:00~18:30 차단)");
+    location.href = "https://fksecurity.onrender.com/banned"; // 이동할 페이지 주소
+  }
+})();
 const { jsPDF } = window.jspdf;
 
 const fieldsContainer = document.getElementById("fieldsContainer");
